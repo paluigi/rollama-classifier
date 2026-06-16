@@ -7,7 +7,7 @@ importFrom(httr2, req_perform)
 importFrom(httr2, req_timeout)
 importFrom(httr2, request)
 importFrom(httr2, resp_body_json)
-importFrom(rlang, %||%)
+importFrom(rlang, `%||%`)
 importFrom(tibble, tibble)
 
 S3method(batch_classify,llm_classifier)
