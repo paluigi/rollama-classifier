@@ -18,8 +18,6 @@ NULL
 #' @keywords internal
 ollama_chat <- function(base_url, model, messages, format = NULL,
                          logprobs = FALSE, options = NULL) {
-  url <- httr2::url(paste0(base_url, "/api/chat"))
-
   body <- list(
     model = model,
     messages = messages,
@@ -29,12 +27,10 @@ ollama_chat <- function(base_url, model, messages, format = NULL,
   if (!is.null(format)) body$format <- format
   if (logprobs) body$options <- c(list(temperature = 0), options)
 
-  req <- httr2::req_perform(
-    httr2::req_body_json(
-      httr2::req_url_post(url),
-      body
-    )
-  )
+  req <- httr2::request(paste0(base_url, "/api/chat")) |>
+    httr2::req_method("POST") |>
+    httr2::req_body_json(body) |>
+    httr2::req_perform()
 
   resp <- httr2::resp_body_json(req, simplifyVector = FALSE)
 

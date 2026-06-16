@@ -50,4 +50,7 @@
 #' @references \url{https://github.com/paluigi/rollama-classifier}
 #'
 #' @keywords internal
+#' @importFrom httr2 request req_method req_headers req_body_json req_timeout req_perform resp_body_json
+#' @importFrom rlang %||%
+#' @importFrom tibble tibble
 "_PACKAGE"
