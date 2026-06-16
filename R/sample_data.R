@@ -1,8 +1,7 @@
 #' Sample Data for Testing rollama
 #'
-#' Two ready-to-use datasets for text classification, each containing 20
-#' customer support ticket texts across four categories: billing,
-#' Sample Data for Testing rollama
+#' A dataset of 20 customer support ticket texts across four categories:
+#' billing, technical_support, account, and general.
 #'
 #' @name sample_tickets
 #' @docType data
@@ -18,6 +17,7 @@
 #' }
 #'
 #' @source Internal dataset
+#' @usage data(sample_tickets)
 NULL
 
 texts <- c(
@@ -75,5 +75,3 @@ expected_labels <- c(
   label = rep(labels, each = 5),
   label_description = rep(unlist(labels_with_descriptions), each = 5)
 )
-
-utils::globalVariables("sample_tickets")

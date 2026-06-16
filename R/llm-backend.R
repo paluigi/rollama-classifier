@@ -106,14 +106,13 @@ extract_logprob_sum <- function(response) {
 #' @return Parsed response list.
 #' @keywords internal
 send_chat_request <- function(base_url, api_key, timeout, body) {
-  url <- httr2::url(paste0(base_url, "/chat/completions"))
-
-  req <- httr2::req_url_post(url) |>
+  req <- httr2::request(paste0(base_url, "/chat/completions")) |>
+    httr2::req_method("POST") |>
     httr2::req_headers(!!!build_headers(api_key)) |>
     httr2::req_body_json(body) |>
-    httr2::req_timeout(timeout)
+    httr2::req_timeout(timeout) |>
+    httr2::req_perform()
 
-  resp <- httr2::req_perform(req)
-  httr2::resp_body_json(resp, simplifyVector = FALSE) |>
+  httr2::resp_body_json(req, simplifyVector = FALSE) |>
     parse_response()
 }
