@@ -17,9 +17,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
     R (>= 4.1.0)
-Imports:
-    knitr,
-VignetteBuilder: knitr,
+VignetteBuilder: knitr
     httr2,
     jsonlite,
     purrr,
