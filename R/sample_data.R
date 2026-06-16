@@ -2,9 +2,9 @@
 #'
 #' Two ready-to-use datasets for text classification, each containing 20
 #' customer support ticket texts across four categories: billing,
-#' technical_support, account, and general.
+#' Sample Data for Testing rollama
 #'
-#' @name sample_data
+#' @name sample_tickets
 #' @docType data
 #' @keywords data
 #'
@@ -16,6 +16,8 @@
 #'   \item{label_description}{Character. Human-readable description of the
 #'     category.}
 #' }
+#'
+#' @source Internal dataset
 NULL
 
 texts <- c(
@@ -66,7 +68,7 @@ expected_labels <- c(
   "general", "general", "general", "general", "general"
 )
 
-#' @rdname sample_data
+#' @rdname sample_tickets
 "sample_tickets" <- tibble::tibble(
   text = texts,
   expected_label = expected_labels,
