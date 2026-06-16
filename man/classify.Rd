@@ -7,7 +7,8 @@
 classify(classifier, text, choices, system_prompt = NULL, ...)
 }
 \arguments{
-\item{classifier}{A classifier object.}
+\item{classifier}{A classifier object created by \code{\link[=ollama_classifier]{ollama_classifier()}} or
+\code{\link[=llm_classifier]{llm_classifier()}}.}
 
 \item{text}{Character. The text to classify.}
 
@@ -18,11 +19,13 @@ classify(classifier, text, choices, system_prompt = NULL, ...)
 \item{...}{Additional arguments.}
 }
 \value{
-A \code{\link[=classification_result]{classification_result()}} list.
+A \code{\link[=classification_result]{classification_result()}} list with prediction, confidence,
+probabilities, and raw_response.
 }
 \description{
-Alias for \code{\link[=score]{score()}} — uses multi-call evaluation to compute calibrated
-probabilities for each choice.
+Uses multi-call evaluation to compute calibrated probabilities for each
+choice. Makes N API calls for N choices, computes log P(choice|context)
+for each, and applies softmax for calibrated probability scores.
 }
 \examples{
 \dontrun{

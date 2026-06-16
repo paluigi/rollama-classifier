@@ -27,45 +27,21 @@ generate <- function(classifier, text, choices, system_prompt = NULL, ...) {
   UseMethod("generate")
 }
 
-#' Score a classification using multi-call evaluation
-#'
-#' Makes separate API calls for each choice to compute log P(choice|context),
-#' then applies softmax for calibrated probabilities. Makes N API calls for
-#' N choices.
-#'
-#' @param classifier A classifier object.
-#' @param text Character. The text to classify.
-#' @param choices Either a character vector of labels or a named list.
-#' @param system_prompt Character or `NULL`. Optional custom system prompt.
-#' @param ... Additional arguments.
-#'
-#' @return A [classification_result()] list.
-#' @export
-#' @examples
-#' \dontrun{
-#' classifier <- ollama_classifier("llama3.2")
-#' result <- score(
-#'   classifier,
-#'   text = "The movie was fantastic!",
-#'   choices = c("positive", "negative", "neutral")
-#' )
-#' }
-score <- function(classifier, text, choices, system_prompt = NULL, ...) {
-  UseMethod("score")
-}
-
 #' Classify text with calibrated confidence scores
 #'
-#' Alias for [score()] — uses multi-call evaluation to compute calibrated
-#' probabilities for each choice.
+#' Uses multi-call evaluation to compute calibrated probabilities for each
+#' choice. Makes N API calls for N choices, computes log P(choice|context)
+#' for each, and applies softmax for calibrated probability scores.
 #'
-#' @param classifier A classifier object.
+#' @param classifier A classifier object created by [ollama_classifier()] or
+#'   [llm_classifier()].
 #' @param text Character. The text to classify.
 #' @param choices Either a character vector of labels or a named list.
 #' @param system_prompt Character or `NULL`. Optional custom system prompt.
 #' @param ... Additional arguments.
 #'
-#' @return A [classification_result()] list.
+#' @return A [classification_result()] list with prediction, confidence,
+#'   probabilities, and raw_response.
 #' @export
 #' @examples
 #' \dontrun{
@@ -94,20 +70,6 @@ classify <- function(classifier, text, choices, system_prompt = NULL, ...) {
 #' @export
 batch_generate <- function(classifier, texts, choices, system_prompt = NULL, ...) {
   UseMethod("batch_generate")
-}
-
-#' Batch scoring
-#'
-#' @param classifier A classifier object.
-#' @param texts Character vector. Texts to classify.
-#' @param choices Either a character vector of labels or a named list.
-#' @param system_prompt Character or `NULL`. Optional custom system prompt.
-#' @param ... Additional arguments.
-#'
-#' @return A list of [classification_result()] objects.
-#' @export
-batch_score <- function(classifier, texts, choices, system_prompt = NULL, ...) {
-  UseMethod("batch_score")
 }
 
 #' Batch classification

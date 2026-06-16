@@ -19,10 +19,8 @@ reference:
       - ollama_classifier
       - generate.ollama_classifier
       - classify.ollama_classifier
-      - score.ollama_classifier
       - batch_generate.ollama_classifier
       - batch_classify.ollama_classifier
-      - batch_score.ollama_classifier
   - title: "LLM Backends"
     contents:
       - vllm_backend
@@ -33,18 +31,14 @@ reference:
       - llm_classifier
       - generate.llm_classifier
       - classify.llm_classifier
-      - score.llm_classifier
       - batch_generate.llm_classifier
       - batch_classify.llm_classifier
-      - batch_score.llm_classifier
   - title: "Generic Methods"
     contents:
       - generate
       - classify
-      - score
       - batch_generate
       - batch_classify
-      - batch_score
   - title: "Results & Data"
     contents:
       - classification_result

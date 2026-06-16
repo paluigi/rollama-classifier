@@ -53,7 +53,7 @@ llm_classifier <- function(backend) {
     parsed$label %||% ""
   }
 
-  # --- Score ---
+  # --- Classify (multi-call with softmax) ---
   get_logprob <- function(system, user, choice) {
     s <- forced(choice)
     resp <- backend$chat(
@@ -68,7 +68,7 @@ llm_classifier <- function(backend) {
     extract_lp(resp)
   }
 
-  score_fn <- function(text, choices, system_prompt = NULL) {
+  classify_fn <- function(text, choices, system_prompt = NULL) {
     lbl <- labels(choices)
     prompt <- build_prompt(text, choices, system_prompt)
 
@@ -86,18 +86,9 @@ llm_classifier <- function(backend) {
     )
   }
 
-  # --- Classify ---
-  classify_fn <- function(text, choices, system_prompt = NULL) {
-    score_fn(text, choices, system_prompt)
-  }
-
   # --- Batch ---
   batch_generate_fn <- function(texts, choices, system_prompt = NULL) {
     purrr::map_chr(texts, ~ generate_fn(.x, choices, system_prompt))
-  }
-
-  batch_score_fn <- function(texts, choices, system_prompt = NULL) {
-    purrr::map(texts, ~ score_fn(.x, choices, system_prompt))
   }
 
   batch_classify_fn <- function(texts, choices, system_prompt = NULL) {
@@ -107,10 +98,8 @@ llm_classifier <- function(backend) {
   structure(
     list(
       generate = generate_fn,
-      score = score_fn,
       classify = classify_fn,
       batch_generate = batch_generate_fn,
-      batch_score = batch_score_fn,
       batch_classify = batch_classify_fn
     ),
     class = "llm_classifier"
@@ -124,12 +113,6 @@ generate.llm_classifier <- function(classifier, text, choices,
 }
 
 #' @export
-score.llm_classifier <- function(classifier, text, choices,
-                                  system_prompt = NULL, ...) {
-  classifier$score(text, choices, system_prompt)
-}
-
-#' @export
 classify.llm_classifier <- function(classifier, text, choices,
                                      system_prompt = NULL, ...) {
   classifier$classify(text, choices, system_prompt)
@@ -139,12 +122,6 @@ classify.llm_classifier <- function(classifier, text, choices,
 batch_generate.llm_classifier <- function(classifier, texts, choices,
                                             system_prompt = NULL, ...) {
   classifier$batch_generate(texts, choices, system_prompt)
-}
-
-#' @export
-batch_score.llm_classifier <- function(classifier, texts, choices,
-                                         system_prompt = NULL, ...) {
-  classifier$batch_score(texts, choices, system_prompt)
 }
 
 #' @export

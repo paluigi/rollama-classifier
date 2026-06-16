@@ -5,17 +5,15 @@
 #' Provides constrained output generation via JSON schema and multi-call
 #' evaluation with softmax for calibrated probability scores.
 #'
-#' @param model Character. Model name to use (e.g., `"llama3.2"`).
+#' @param model Character. Model name to use (e.g., `\"llama3.2\"`).
 #' @param base_url Character. Base URL of the Ollama server.
-#'   Defaults to `"http://localhost:11434"`.
+#'   Defaults to `\"http://localhost:11434\"`.
 #'
 #' @return A classifier environment (list-like object) with methods:
 #' \describe{
 #'   \item{generate(text, choices, system_prompt)}{Constrained output only (fastest).}
-#'   \item{score(text, choices, system_prompt)}{Multi-call evaluation with softmax.}
 #'   \item{classify(text, choices, system_prompt)}{Full classification with confidence scores.}
 #'   \item{batch_generate(texts, choices, system_prompt)}{Batch constrained output.}
-#'   \item{batch_score(texts, choices, system_prompt)}{Batch scoring.}
 #'   \item{batch_classify(texts, choices, system_prompt)}{Batch classification.}
 #' }
 #'
@@ -82,7 +80,7 @@ ollama_classifier <- function(model, base_url = "http://localhost:11434") {
     parsed$label %||% ""
   }
 
-  # --- Score ---
+  # --- Classify (multi-call with softmax) ---
   get_logprob <- function(system, user, choice) {
     s <- forced(choice)
     resp <- chat_fn(
@@ -99,7 +97,7 @@ ollama_classifier <- function(model, base_url = "http://localhost:11434") {
     extract_lp(resp$logprobs)
   }
 
-  score_fn <- function(text, choices, system_prompt = NULL) {
+  classify_fn <- function(text, choices, system_prompt = NULL) {
     lbl <- labels(choices)
     prompt <- build_prompt(text, choices, system_prompt)
 
@@ -117,18 +115,9 @@ ollama_classifier <- function(model, base_url = "http://localhost:11434") {
     )
   }
 
-  # --- Classify (delegates to score) ---
-  classify_fn <- function(text, choices, system_prompt = NULL) {
-    score_fn(text, choices, system_prompt)
-  }
-
   # --- Batch variants ---
   batch_generate_fn <- function(texts, choices, system_prompt = NULL) {
     purrr::map_chr(texts, ~ generate_fn(.x, choices, system_prompt))
-  }
-
-  batch_score_fn <- function(texts, choices, system_prompt = NULL) {
-    purrr::map(texts, ~ score_fn(.x, choices, system_prompt))
   }
 
   batch_classify_fn <- function(texts, choices, system_prompt = NULL) {
@@ -138,10 +127,8 @@ ollama_classifier <- function(model, base_url = "http://localhost:11434") {
   structure(
     list(
       generate = generate_fn,
-      score = score_fn,
       classify = classify_fn,
       batch_generate = batch_generate_fn,
-      batch_score = batch_score_fn,
       batch_classify = batch_classify_fn
     ),
     class = "ollama_classifier"
@@ -155,12 +142,6 @@ generate.ollama_classifier <- function(classifier, text, choices,
 }
 
 #' @export
-score.ollama_classifier <- function(classifier, text, choices,
-                                     system_prompt = NULL, ...) {
-  classifier$score(text, choices, system_prompt)
-}
-
-#' @export
 classify.ollama_classifier <- function(classifier, text, choices,
                                        system_prompt = NULL, ...) {
   classifier$classify(text, choices, system_prompt)
@@ -170,12 +151,6 @@ classify.ollama_classifier <- function(classifier, text, choices,
 batch_generate.ollama_classifier <- function(classifier, texts, choices,
                                              system_prompt = NULL, ...) {
   classifier$batch_generate(texts, choices, system_prompt)
-}
-
-#' @export
-batch_score.ollama_classifier <- function(classifier, texts, choices,
-                                            system_prompt = NULL, ...) {
-  classifier$batch_score(texts, choices, system_prompt)
 }
 
 #' @export

@@ -7,19 +7,17 @@
 ollama_classifier(model, base_url = "http://localhost:11434")
 }
 \arguments{
-\item{model}{Character. Model name to use (e.g., \code{"llama3.2"}).}
+\item{model}{Character. Model name to use (e.g., \verb{\\"llama3.2\\"}).}
 
 \item{base_url}{Character. Base URL of the Ollama server.
-Defaults to \code{"http://localhost:11434"}.}
+Defaults to \verb{\\"http://localhost:11434\\"}.}
 }
 \value{
 A classifier environment (list-like object) with methods:
 \describe{
 \item{generate(text, choices, system_prompt)}{Constrained output only (fastest).}
-\item{score(text, choices, system_prompt)}{Multi-call evaluation with softmax.}
 \item{classify(text, choices, system_prompt)}{Full classification with confidence scores.}
 \item{batch_generate(texts, choices, system_prompt)}{Batch constrained output.}
-\item{batch_score(texts, choices, system_prompt)}{Batch scoring.}
 \item{batch_classify(texts, choices, system_prompt)}{Batch classification.}
 }
 }
