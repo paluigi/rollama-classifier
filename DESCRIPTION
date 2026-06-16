@@ -1,0 +1,37 @@
+Package: rollama
+Type: Package
+Title: Classify Text with LLMs on Ollama and Other Backends
+Version: 0.3.0
+Authors@R: c(
+    person("Luigi", "Palumbo", , "paluigi@users.noreply.github.com", role = c("aut", "cre")),
+    person("Mengting", "Yu", , role = "aut"),
+    person("Carolina", "Camassa", , role = "aut")
+  )
+Description: A wrapper around the Ollama REST API and other inference engines
+    (vLLM, SGLang, llama.cpp) for text classification with constrained output
+    and confidence scoring. Provides constrained generation via JSON schema
+    with enum constraints, multi-call evaluation with softmax for calibrated
+    probability scores, and support for multiple inference backends.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1.0)
+Imports:
+    httr2,
+    jsonlite,
+    purrr,
+    rlang,
+    tibble
+Suggests:
+    knitr,
+    rmarkdown,
+    pkgdown,
+    testthat (>= 3.0.0)
+URL: https://github.com/paluigi/rollama-classifier,
+    https://paluigi-moltis.github.io/rollama-classifier/
+BugReports: https://github.com/paluigi/rollama-classifier/issues
+Config/Needs/website: tidyverse/tidytemplate
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0
