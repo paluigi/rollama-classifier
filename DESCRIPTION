@@ -2,11 +2,8 @@ Package: rollama
 Type: Package
 Title: Classify Text with LLMs on Ollama and Other Backends
 Version: 0.3.0
-Authors@R: c(
-    person("Luigi", "Palumbo", , "paluigi@users.noreply.github.com", role = c("aut", "cre")),
-    person("Mengting", "Yu", , role = "aut"),
-    person("Carolina", "Camassa", , role = "aut")
-  )
+Author: Luigi Palumbo <paluigi@users.noreply.github.com>
+Maintainer: Luigi Palumbo <paluigi@users.noreply.github.com>
 Description: A wrapper around the Ollama REST API and other inference engines
     (vLLM, SGLang, llama.cpp) for text classification with constrained output
     and confidence scoring. Provides constrained generation via JSON schema
