@@ -1,0 +1,57 @@
+url: https://paluigi-moltis.github.io/rollama-classifier/
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, backends]
+    right: [search, github]
+
+home:
+  links:
+    - text: Source on GitHub
+      href: https://github.com/paluigi/rollama-classifier
+
+reference:
+  - title: "Ollama Backend"
+    contents:
+      - ollama_classifier
+      - generate.ollama_classifier
+      - classify.ollama_classifier
+      - score.ollama_classifier
+      - batch_generate.ollama_classifier
+      - batch_classify.ollama_classifier
+      - batch_score.ollama_classifier
+  - title: "LLM Backends"
+    contents:
+      - vllm_backend
+      - sglang_backend
+      - llamacpp_backend
+  - title: "Generic Classifier"
+    contents:
+      - llm_classifier
+      - generate.llm_classifier
+      - classify.llm_classifier
+      - score.llm_classifier
+      - batch_generate.llm_classifier
+      - batch_classify.llm_classifier
+      - batch_score.llm_classifier
+  - title: "Generic Methods"
+    contents:
+      - generate
+      - classify
+      - score
+      - batch_generate
+      - batch_classify
+      - batch_score
+  - title: "Results & Data"
+    contents:
+      - classification_result
+      - sample_tickets
+  - title: "Prompt Utilities"
+    contents:
+      - build_classification_prompt
+      - get_choice_labels
+      - format_choices
+      - stable_softmax

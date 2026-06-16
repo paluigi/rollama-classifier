@@ -1,0 +1,142 @@
+---
+title: "Inference Backends"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{inference-backends}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+`rollama` supports four inference backends. The original `ollama_classifier()`
+uses the Ollama REST API directly. For all other backends, use `llm_classifier()`
+with the appropriate backend class.
+
+All non-Ollama backends communicate via the [OpenAI-compatible chat completions API](https://platform.openai.com/docs/api-reference/chat).
+
+## Ollama
+
+The default backend. Requires the Ollama runtime installed locally.
+
+```{r eval=FALSE}
+library(rollama)
+classifier <- ollama_classifier("llama3.2")
+```
+
+## vLLM
+
+High-throughput serving engine for LLMs. Supports guided decoding and logprobs out of the box.
+
+**Start a local server:**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.2-3B-Instruct \
+    --host 0.0.0.0 --port 8000
+```
+
+**Connect:**
+
+```{r eval=FALSE}
+backend <- vllm_backend(
+  model = "meta-llama/Llama-3.2-3B-Instruct",
+  base_url = "http://localhost:8000/v1"
+)
+classifier <- llm_classifier(backend)
+```
+
+**Remote server:**
+
+```{r eval=FALSE}
+backend <- vllm_backend(
+  model = "your-model",
+  base_url = "https://your-vllm-server.com/v1",
+  api_key = "your-api-key"
+)
+classifier <- llm_classifier(backend)
+```
+
+## SGLang
+
+Fast serving system for large language models with efficient radix attention.
+
+**Start a local server:**
+
+```bash
+python -m sglang.launch_server \
+    --model-path meta-llama/Llama-3.2-3B-Instruct \
+    --host 0.0.0.0 --port 30000
+```
+
+**Connect:**
+
+```{r eval=FALSE}
+backend <- sglang_backend(
+  model = "meta-llama/Llama-3.2-3B-Instruct",
+  base_url = "http://localhost:30000/v1"
+)
+classifier <- llm_classifier(backend)
+```
+
+## llama.cpp
+
+Lightweight inference via `llama-server`. Ideal for CPU or mixed CPU/GPU environments.
+
+**Start a local server:**
+
+```bash
+./llama-server -m model.gguf --host 0.0.0.0 --port 8080 -c 4096
+```
+
+**Connect:**
+
+```{r eval=FALSE}
+backend <- llamacpp_backend(
+  model = "model",
+  base_url = "http://localhost:8080/v1"
+)
+classifier <- llm_classifier(backend)
+```
+
+> **Note:** JSON schema constraints and logprobs require llama.cpp to be
+> compiled with the appropriate flags (`LLAMA_JSON_SCHEMA` and
+> `LLAMA_SUPPORT_LOGPROBS`).
+
+## Backend Configuration
+
+All backends share common configuration options:
+
+| Parameter    | Default        | Description                                |
+|--------------|----------------|--------------------------------------------|
+| `model`      | *(required)*   | Model identifier                           |
+| `base_url`   | Engine-specific | Base URL of the inference server           |
+| `api_key`    | `"not-needed"` | API key for authentication                 |
+| `timeout`    | `120`          | Request timeout in seconds                 |
+| `max_tokens` | `256`          | Maximum tokens to generate                 |
+| `extra_body` | `{}`           | Extra parameters merged into every request |
+
+## Switching Backends
+
+The `llm_classifier()` exposes the **same API** regardless of which backend you use:
+
+```{r eval=FALSE}
+backends <- list(
+  vllm = vllm_backend("my-model", base_url = "http://localhost:8000/v1"),
+  sglang = sglang_backend("my-model", base_url = "http://localhost:30000/v1"),
+  llamacpp = llamacpp_backend("my-model", base_url = "http://localhost:8080/v1")
+)
+
+purrr::imap(backends, ~ {
+  classifier <- llm_classifier(.x)
+  result <- classify(classifier, "Hello world!", choices = c("a", "b", "c"))
+  paste0(.y, ": ", result$prediction)
+})
+```
