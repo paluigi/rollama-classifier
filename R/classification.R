@@ -1,8 +1,8 @@
 #' Classification Result
 #'
 #' @description
-#' Result of a classification operation. Returned by [classify()], [score()],
-#' and their batch variants.
+#' Result of a classification operation. Returned by [classify()] and
+#' [batch_classify()].
 #'
 #' @param prediction Character. The predicted class label.
 #' @param confidence Numeric between 0 and 1. Confidence score for the

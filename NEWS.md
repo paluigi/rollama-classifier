@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Removed redundant `score()` / `batch_score()` generics and their S3 methods.
+  `classify()` and `batch_classify()` remain as the sole interface for
+  classification with confidence scoring.
+- Inlined the multi-call softmax logic directly into `classify_fn` (no
+  longer delegates through an internal `score_fn`).
+- Removed `score` and `batch_score` from the classifier environment
+  returned by `ollama_classifier()` and `llm_classifier()`.
+- Updated README, vignettes, pkgdown reference index, and method tables
+  to reflect the simplified API.
+
 ## [0.3.0] - 2025-06-16
 
 ### Added
@@ -13,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `vllm_backend()` — inference backend for vLLM (local and remote)
 - `sglang_backend()` — inference backend for SGLang (local and remote)
 - `llamacpp_backend()` — inference backend for llama.cpp server (local and remote)
-- `generate()`, `score()`, `classify()` and their batch variants as S3 generics
+- `generate()`, `classify()` and their batch variants as S3 generics
 - `build_classification_prompt()`, `get_choice_labels()` as exported utilities
 - `sample_tickets` dataset — 20 customer support tickets for testing
 - Vignettes: "Getting Started with rollama" and "Inference Backends"

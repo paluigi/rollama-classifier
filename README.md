@@ -137,18 +137,6 @@ result <- classify(
 )
 ```
 
-### Scoring (Multi-Call with Softmax)
-
-Get calibrated probability distribution over all choices. Makes N API calls for N choices:
-
-```r
-result <- score(
-  classifier,
-  text = "The movie was fantastic!",
-  choices = c("positive", "negative", "neutral")
-)
-```
-
 ### Generate Only (Fastest)
 
 When you only need the prediction without confidence scores:
@@ -231,10 +219,8 @@ Both `ollama_classifier()` and `llm_classifier()` expose the same methods:
 | Function | Description |
 |----------|-------------|
 | `generate(text, choices, system_prompt)` | Constrained output only (fastest) |
-| `score(text, choices, system_prompt)` | Multi-call evaluation with softmax |
-| `classify(text, choices, system_prompt)` | Full classification with confidence scores |
+| `classify(text, choices, system_prompt)` | Classification with confidence scores |
 | `batch_generate(texts, choices, system_prompt)` | Batch constrained output |
-| `batch_score(texts, choices, system_prompt)` | Batch scoring |
 | `batch_classify(texts, choices, system_prompt)` | Batch classification |
 
 ### Parameters
@@ -249,8 +235,8 @@ Both `ollama_classifier()` and `llm_classifier()` expose the same methods:
 | Use Case | Recommended Method |
 |----------|-------------------|
 | Speed is critical, no confidence needed | `generate()` |
-| Accurate confidence scores | `classify()` / `score()` |
-| Batch processing | `batch_classify()` or `batch_score()` |
+| Confidence scores needed | `classify()` |
+| Batch processing | `batch_classify()` or `batch_generate()` |
 
 ## Sample Data
 

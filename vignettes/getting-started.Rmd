@@ -117,19 +117,6 @@ result <- classify(
 )
 ```
 
-### Scoring (Multi-Call with Softmax)
-
-Get calibrated probability distribution over all choices.
-Makes N API calls for N choices:
-
-```{r eval=FALSE}
-result <- score(
-  classifier,
-  text = "The movie was fantastic!",
-  choices = c("positive", "negative", "neutral")
-)
-```
-
 ### Generate Only (Fastest)
 
 When you only need the prediction without confidence scores:
@@ -173,93 +160,13 @@ results <- batch_classify(
 )
 ```
 
-## Inference Backends
-
-### Ollama (Default)
-
-The original backend using the Ollama REST API. Requires Ollama installed locally.
-
-```{r eval=FALSE}
-classifier <- ollama_classifier("llama3.2")
-```
-
-### vLLM
-
-High-throughput serving engine for LLMs:
-
-```{r eval=FALSE}
-backend <- vllm_backend(
-  model = "meta-llama/Llama-3.2-3B-Instruct",
-  base_url = "http://localhost:8000/v1"
-)
-classifier <- llm_classifier(backend)
-```
-
-### SGLang
-
-Fast serving system for large language models:
-
-```{r eval=FALSE}
-backend <- sglang_backend(
-  model = "meta-llama/Llama-3.2-3B-Instruct",
-  base_url = "http://localhost:30000/v1"
-)
-classifier <- llm_classifier(backend)
-```
-
-### llama.cpp
-
-Lightweight inference via `llama-server`:
-
-```{r eval=FALSE}
-backend <- llamacpp_backend(
-  model = "model",
-  base_url = "http://localhost:8080/v1"
-)
-classifier <- llm_classifier(backend)
-```
-
-> **Note:** JSON schema constraints and logprobs require llama.cpp to be
-> compiled with `LLAMA_JSON_SCHEMA` and `LLAMA_SUPPORT_LOGPROBS` flags.
-
-### Backend Configuration
-
-All backends share common options:
-
-| Parameter    | Default        | Description                                |
-|--------------|----------------|--------------------------------------------|
-| `model`      | *(required)*   | Model identifier                           |
-| `base_url`   | Engine-specific | Base URL of the inference server           |
-| `api_key`    | `"not-needed"` | API key for authentication                 |
-| `timeout`    | `120`          | Request timeout in seconds                 |
-| `max_tokens` | `256`          | Maximum tokens to generate                 |
-| `extra_body` | `{}`           | Extra parameters merged into every request |
-
-### Switching Backends
-
-The `llm_classifier()` exposes the same API regardless of which backend you use:
-
-```{r eval=FALSE}
-backends <- list(
-  vllm_backend("my-model", base_url = "http://localhost:8000/v1"),
-  sglang_backend("my-model", base_url = "http://localhost:30000/v1"),
-  llamacpp_backend("my-model", base_url = "http://localhost:8080/v1")
-)
-
-purrr::map(backends, ~ {
-  classifier <- llm_classifier(.x)
-  result <- classify(classifier, "Hello world!", choices = c("a", "b", "c"))
-  result$prediction
-})
-```
-
 ## Choosing a Method
 
 | Use Case                              | Recommended Method                    |
 |---------------------------------------|----------------------------------------|
 | Speed is critical, no confidence       | `generate()`                           |
-| Accurate confidence scores            | `classify()` / `score()`               |
-| Batch processing                      | `batch_classify()` or `batch_score()`  |
+| Confidence scores needed               | `classify()`                           |
+| Batch processing                       | `batch_classify()` or `batch_generate()`  |
 
 ## Sample Data
 

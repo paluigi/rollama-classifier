@@ -33,8 +33,8 @@ A list of class \code{classification_result} with components:
 }
 }
 \description{
-Result of a classification operation. Returned by \code{\link[=classify]{classify()}}, \code{\link[=score]{score()}},
-and their batch variants.
+Result of a classification operation. Returned by \code{\link[=classify]{classify()}} and
+\code{\link[=batch_classify]{batch_classify()}}.
 }
 \examples{
 res <- classification_result(
