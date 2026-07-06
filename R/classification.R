@@ -1,22 +1,33 @@
 #' Classification Result
 #'
 #' @description
-#' Result of a classification operation. Returned by [classify()] and
-#' [batch_classify()].
+#' Result of a classification operation. Returned by [classify()], [generate()],
+#' and their batch variants.
 #'
 #' @param prediction Character. The predicted class label.
 #' @param confidence Numeric between 0 and 1. Confidence score for the
 #'   prediction.
 #' @param probabilities Named numeric vector. Probability distribution over
 #'   all choices (sums to 1).
-#' @param raw_response List. Raw response from the API for debugging.
-#'   May be a list with `logprobs` or the raw API response.
+#' @param method Character. Scoring method used: `"adaptive_generate"` or
+#'   `"multi_call"`.
+#' @param approximate Logical. `TRUE` if any label has partial coverage
+#'   (unresolved tokens). Only relevant for `adaptive_generate`; always
+#'   `FALSE` for `multi_call`.
+#' @param coverage Named numeric vector. Per-label fraction of tokens scored
+#'   (0.0 to 1.0). `1.0` = fully resolved.
+#' @param n_calls Integer. Number of API calls made.
+#' @param raw_response List. Raw response data for debugging.
 #'
 #' @return A list of class `classification_result` with components:
 #' \describe{
 #'   \item{prediction}{Character. The predicted label.}
 #'   \item{confidence}{Numeric. Confidence score (0-1).}
 #'   \item{probabilities}{Named numeric vector. Probability distribution.}
+#'   \item{method}{Character. Scoring method used.}
+#'   \item{approximate}{Logical. Whether scores are approximate.}
+#'   \item{coverage}{Named numeric vector. Per-label token coverage.}
+#'   \item{n_calls}{Integer. Number of API calls.}
 #'   \item{raw_response}{List. Raw API response for debugging.}
 #' }
 #'
@@ -25,16 +36,22 @@
 #' res <- classification_result(
 #'   prediction = "positive",
 #'   confidence = 0.85,
-#'   probabilities = c(positive = 0.85, negative = 0.10, neutral = 0.05),
-#'   raw_response = list()
+#'   probabilities = c(positive = 0.85, negative = 0.10, neutral = 0.05)
 #' )
 #' print(res$prediction)
-classification_result <- function(prediction, confidence, probabilities, raw_response = list()) {
+classification_result <- function(prediction, confidence, probabilities,
+                                  method = "multi_call", approximate = FALSE,
+                                  coverage = numeric(0), n_calls = 1L,
+                                  raw_response = list()) {
   structure(
     list(
       prediction = prediction,
       confidence = confidence,
       probabilities = probabilities,
+      method = method,
+      approximate = approximate,
+      coverage = coverage,
+      n_calls = n_calls,
       raw_response = raw_response
     ),
     class = "classification_result"
@@ -46,6 +63,11 @@ print.classification_result <- function(x, ...) {
   cat("ClassificationResult\n")
   cat("  Prediction:   ", x$prediction, "\n", sep = "")
   cat("  Confidence:    ", sprintf("%.2f%%", x$confidence * 100), "\n", sep = "")
+  cat("  Method:        ", x$method, "\n", sep = "")
+  if (isTRUE(x$approximate)) {
+    cat("  Approximate:   TRUE\n")
+  }
+  cat("  Calls:         ", x$n_calls, "\n", sep = "")
   cat("  Probabilities: ", sep = "")
   probs <- x$probabilities
   if (length(probs) > 0) {
@@ -163,33 +185,4 @@ build_classification_prompt <- function(text, choices, system_prompt = NULL) {
   list(system = system_prompt, user = user_prompt)
 }
 
-#' Numerically stable softmax
-#'
-#' @param logprobs Named numeric vector of log probabilities.
-#' @return Named numeric vector of probabilities summing to 1.
-#' @keywords internal
-stable_softmax <- function(logprobs) {
-  valid <- logprobs[logprobs > -Inf]
-
-  if (length(valid) == 0) {
-    n <- length(logprobs)
-    probs <- rep(1 / n, n)
-    names(probs) <- names(logprobs)
-    return(probs)
-  }
-
-  max_lp <- max(valid)
-  exp_vals <- ifelse(logprobs > -Inf, exp(logprobs - max_lp), 0)
-  total <- sum(exp_vals)
-
-  if (total == 0) {
-    n <- length(logprobs)
-    probs <- rep(1 / n, n)
-    names(probs) <- names(logprobs)
-    return(probs)
-  }
-
-  probs <- exp_vals / total
-  names(probs) <- names(logprobs)
-  probs
-}
+# stable_softmax moved to R/scoring.R

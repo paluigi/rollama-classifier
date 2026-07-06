@@ -16,23 +16,23 @@ vllm_backend(
 \arguments{
 \item{model}{Character. Model identifier.}
 
-\item{base_url}{Character. Base URL of the vLLM server.
-Defaults to \code{"http://localhost:8000/v1"}.}
+\item{base_url}{Character. Base URL of the vLLM server.}
 
-\item{api_key}{Character. API key. Defaults to \code{"not-needed"}.}
+\item{api_key}{Character. API key.}
 
-\item{timeout}{Numeric. Request timeout in seconds. Default 120.}
+\item{timeout}{Numeric. Request timeout in seconds.}
 
-\item{max_tokens}{Integer. Max tokens to generate. Default 256.}
+\item{max_tokens}{Integer. Max tokens to generate.}
 
 \item{extra_body}{List. Extra parameters merged into every request.}
 }
 \value{
-A backend environment with methods \code{chat()} and \code{achat()}.
+A backend list.
 }
 \description{
-Create a backend for the vLLM inference server. vLLM provides a
-high-throughput serving engine with an OpenAI-compatible API.
+Backend for the vLLM inference server. vLLM provides a high-throughput
+serving engine with an OpenAI-compatible API. It supports \code{guided_choice}
+natively, generating bare label text with no JSON wrapper.
 }
 \examples{
 \dontrun{

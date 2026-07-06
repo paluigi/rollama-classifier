@@ -7,17 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-06
+
+The v0.4.0 redesign unifies the package around a single
+`llm_classifier()` backed by four unified backends, each exposing the
+same `chat()`, `score()`, and `tokenize()` methods. It introduces two
+clearly distinct scoring methods — adaptive `generate()` and exact
+`classify()` — both returning a rich `classification_result`.
+
+### Added
+
+- `ollama_backend()` — unified Ollama backend with `chat()`, `score()`,
+  and `tokenize()` methods, replacing the special-cased Ollama path.
+  All four backends now share the same interface.
+- Adaptive `generate()` with the `max_calls` parameter for budget
+  control: `1` (single fast call, possibly approximate), `K` (adaptive
+  resolution up to K calls), or `NULL` (resolve all labels, exact).
+- New `classification_result` fields: `coverage` (named numeric vector
+  of per-label token coverage, 0.0–1.0), `n_calls` (API calls made),
+  `approximate` (logical), and `method` (`"adaptive_generate"` or
+  `"multi_call"`).
+- New `R/scoring.R` module: shared scoring utilities used by both
+  `generate()` and `classify()`, including a label prefix trie and
+  divergence-aware scoring.
+- Geometric-mean length normalization (`geometric_mean_logprob()`)
+  applied consistently across both scoring methods.
+- `supports_bare_label_constraint` capability flag on every backend,
+  indicating whether the engine can emit bare label text (vLLM, SGLang,
+  llama.cpp) or wraps labels in JSON (Ollama).
+
 ### Changed
 
-- Removed redundant `score()` / `batch_score()` generics and their S3 methods.
-  `classify()` and `batch_classify()` remain as the sole interface for
-  classification with confidence scoring.
-- Inlined the multi-call softmax logic directly into `classify_fn` (no
-  longer delegates through an internal `score_fn`).
-- Removed `score` and `batch_score` from the classifier environment
-  returned by `ollama_classifier()` and `llm_classifier()`.
-- Updated README, vignettes, pkgdown reference index, and method tables
-  to reflect the simplified API.
+- **BREAKING:** `generate()` now returns a `classification_result` (with
+  `prediction`, `confidence`, `probabilities`, `method`, `approximate`,
+  `coverage`, `n_calls`). In 0.3.0 it returned a bare predicted string.
+- **BREAKING:** `llm_classifier()` is now the single entry point for all
+  backends, including Ollama. It takes a backend object created by
+  `ollama_backend()`, `vllm_backend()`, `sglang_backend()`, or
+  `llamacpp_backend()`.
+- `classify()` rewritten: uses multi-call completion scoring
+  (`backend$score()`) with geometric-mean normalization instead of the
+  previous softmax-over-summed-logprobs approach.
+- All backends rewritten around the unified `chat()` / `score()` /
+  `tokenize()` interface; they now carry capability metadata.
+- `batch_generate()` and `batch_classify()` return lists of
+  `classification_result` objects.
+
+### Fixed
+
+- Concentration/length bias in confidence scoring: raw logprob sums
+  favored labels with fewer tokens. Geometric-mean normalization makes
+  scores comparable across labels of different lengths.
+- Eliminated code duplication between the old `ollama_classifier()` and
+  `llm_classifier()` paths via the unified backend interface.
+
+### Removed
+
+- `ollama_classifier()` function — replaced by
+  `llm_classifier(ollama_backend())`.
+- Old `llm_classifier()` implementation (`R/llm-backend.R`) and the
+  Ollama-specific classifier (`R/ollama-classifier.R`).
+- Redundant `score()` / `batch_score()` generics and S3 methods.
 
 ## [0.3.0] - 2025-06-16
 

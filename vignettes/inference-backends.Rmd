@@ -16,24 +16,82 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-`rollama` supports four inference backends. The original `ollama_classifier()`
-uses the Ollama REST API directly. For all other backends, use `llm_classifier()`
-with the appropriate backend class.
+`rollama` supports four inference backends, all accessed through the
+same `llm_classifier()` interface. Each backend is created by a
+constructor function and exposes a unified set of methods: `chat()`,
+`score()`, and `tokenize()`.
 
-All non-Ollama backends communicate via the [OpenAI-compatible chat completions API](https://platform.openai.com/docs/api-reference/chat).
+```r
+library(rollama)
+
+backend   <- ollama_backend("llama3.2")   # or vllm / sglang / llamacpp
+classifier <- llm_classifier(backend)
+```
+
+Because the classifier talks to backends through this common interface,
+`generate()`, `classify()`, and their batch variants work identically no
+matter which engine you use. The backends differ only in how they run
+and how they constrain output to valid labels.
+
+## Backend capabilities and label constraints
+
+Every backend constrains the model's generation to one of the supplied
+labels so that `generate()` always produces a valid choice. The
+mechanism differs per engine, captured by the
+`supports_bare_label_constraint` flag:
+
+| Backend | `supports_bare_label_constraint` | Constraint mechanism | Output form |
+|---|---|---|---|
+| `ollama_backend()`  | `FALSE` | JSON Schema `enum` (via `format`) | `{"label": "..."}` |
+| `vllm_backend()`    | `TRUE`  | `guided_choice`                   | bare label text |
+| `sglang_backend()`  | `TRUE`  | `regex`                           | bare label text |
+| `llamacpp_backend()`| `TRUE`  | GBNF `grammar`                    | bare label text |
+
+Backends with `supports_bare_label_constraint = TRUE` emit the label as
+plain text. The Ollama backend wraps the label in a small JSON object
+(`{"label": "<chosen>"}`); `rollama` filters the structural JSON tokens
+during trie reconstruction and uses context-dependent tokenization so
+the prefix trie matches the actual response tokens. This is an internal
+detail — both paths feed the same `generate()` / `classify()` logic.
 
 ## Ollama
 
-The default backend. Requires the Ollama runtime installed locally.
+The default backend. Uses the native Ollama REST API (`/api/chat`,
+`/api/generate`, `/api/tokenize`). Requires the Ollama runtime (>=v0.12)
+installed locally.
+
+**Start:**
+
+```bash
+ollama pull llama3.2
+ollama serve
+```
+
+**Connect:**
 
 ```{r eval=FALSE}
-library(rollama)
-classifier <- ollama_classifier("llama3.2")
+backend <- ollama_backend(model = "llama3.2")
+classifier <- llm_classifier(backend)
 ```
+
+`ollama_backend()` defaults to `host = "http://localhost:11434"`. To
+point at a remote Ollama instance, set `host`:
+
+```{r eval=FALSE}
+backend <- ollama_backend(
+  model = "llama3.2",
+  host  = "https://my-ollama.example.com"
+)
+```
+
+Ollama constrains labels with a JSON Schema `enum` passed via the
+`format` parameter, so it sets `supports_bare_label_constraint = FALSE`.
 
 ## vLLM
 
-High-throughput serving engine for LLMs. Supports guided decoding and logprobs out of the box.
+High-throughput serving engine for LLMs. Communicates via the
+OpenAI-compatible API and supports guided decoding and logprobs out of
+the box.
 
 **Start a local server:**
 
@@ -53,6 +111,9 @@ backend <- vllm_backend(
 classifier <- llm_classifier(backend)
 ```
 
+vLLM constrains labels natively with `guided_choice`, producing bare
+label text, so `supports_bare_label_constraint = TRUE`.
+
 **Remote server:**
 
 ```{r eval=FALSE}
@@ -66,7 +127,8 @@ classifier <- llm_classifier(backend)
 
 ## SGLang
 
-Fast serving system for large language models with efficient radix attention.
+Fast serving system for large language models with efficient radix
+attention. Also OpenAI-compatible.
 
 **Start a local server:**
 
@@ -86,9 +148,14 @@ backend <- sglang_backend(
 classifier <- llm_classifier(backend)
 ```
 
+SGLang constrains labels with a `regex` built from the label set
+(`(label1|label2|...)`), producing bare label text, so
+`supports_bare_label_constraint = TRUE`.
+
 ## llama.cpp
 
-Lightweight inference via `llama-server`. Ideal for CPU or mixed CPU/GPU environments.
+Lightweight inference via `llama-server`. Ideal for CPU or mixed
+CPU/GPU environments.
 
 **Start a local server:**
 
@@ -106,31 +173,41 @@ backend <- llamacpp_backend(
 classifier <- llm_classifier(backend)
 ```
 
-> **Note:** JSON schema constraints and logprobs require llama.cpp to be
-> compiled with the appropriate flags (`LLAMA_JSON_SCHEMA` and
-> `LLAMA_SUPPORT_LOGPROBS`).
+llama.cpp constrains labels with a GBNF `grammar`
+(`root ::= "label1" | "label2" | "label3"`), producing bare label text,
+so `supports_bare_label_constraint = TRUE`.
+
+> **Note:** Logprobs support requires `llama-server` to be compiled with
+> the appropriate flag (e.g. `LLAMA_SUPPORT_LOGPROBS`). Constrained
+> generation via grammar is available in recent llama.cpp builds.
 
 ## Backend Configuration
 
 All backends share common configuration options:
 
-| Parameter    | Default        | Description                                |
-|--------------|----------------|--------------------------------------------|
-| `model`      | *(required)*   | Model identifier                           |
-| `base_url`   | Engine-specific | Base URL of the inference server           |
-| `api_key`    | `"not-needed"` | API key for authentication                 |
-| `timeout`    | `120`          | Request timeout in seconds                 |
-| `max_tokens` | `256`          | Maximum tokens to generate                 |
-| `extra_body` | `{}`           | Extra parameters merged into every request |
+| Parameter    | Default          | Description                                |
+|--------------|------------------|--------------------------------------------|
+| `model`      | *(required)*     | Model identifier                           |
+| `base_url` / `host` | Engine-specific | Base URL of the inference server    |
+| `api_key`    | `"not-needed"`   | API key for authentication                 |
+| `timeout`    | `120`            | Request timeout in seconds                 |
+| `max_tokens` | `256`            | Maximum tokens to generate                 |
+| `extra_body` | `{}`             | Extra parameters merged into every request |
+
+> Ollama uses `host` instead of `base_url` and has no `api_key`
+> parameter (the native API needs none). The other backends use
+> `base_url` and `api_key` to match the OpenAI-compatible convention.
 
 ## Switching Backends
 
-The `llm_classifier()` exposes the **same API** regardless of which backend you use:
+`llm_classifier()` exposes the **same API** regardless of which backend
+you use — only the constructor differs:
 
 ```{r eval=FALSE}
 backends <- list(
-  vllm = vllm_backend("my-model", base_url = "http://localhost:8000/v1"),
-  sglang = sglang_backend("my-model", base_url = "http://localhost:30000/v1"),
+  ollama   = ollama_backend("llama3.2"),
+  vllm     = vllm_backend("my-model", base_url = "http://localhost:8000/v1"),
+  sglang   = sglang_backend("my-model", base_url = "http://localhost:30000/v1"),
   llamacpp = llamacpp_backend("my-model", base_url = "http://localhost:8080/v1")
 )
 
@@ -139,4 +216,18 @@ purrr::imap(backends, ~ {
   result <- classify(classifier, "Hello world!", choices = c("a", "b", "c"))
   paste0(.y, ": ", result$prediction)
 })
+```
+
+## Inspecting a backend
+
+Every backend is a list with the unified methods plus capability
+metadata. This is primarily useful for debugging or advanced use:
+
+```{r eval=FALSE}
+backend <- ollama_backend("llama3.2")
+
+backend$chat        # constrained chat completion
+backend$score       # completion scoring (used by classify())
+backend$tokenize    # context-dependent tokenization
+backend$supports_bare_label_constraint  # FALSE for Ollama, TRUE elsewhere
 ```

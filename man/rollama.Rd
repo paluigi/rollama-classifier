@@ -8,24 +8,31 @@
 \description{
 A wrapper around the Ollama REST API and other inference engines
 (vLLM, SGLang, llama.cpp) for text classification with constrained output
-and confidence scoring.
+and confidence scoring. Provides two scoring methods:
+\itemize{
+\item \code{generate()}: Adaptive constrained generation with divergence-aware
+confidence scoring, budget-controlled via \code{max_calls}.
+\item \code{classify()}: Multi-call completion scoring with geometric-mean
+normalization. Gold-standard accuracy.
+}
 }
 \section{Features}{
 
 \itemize{
-\item Constrained output via JSON schema with enum constraints
-\item Confidence scoring via multi-call evaluation with softmax
+\item Adaptive constrained generation with trie-based confidence scoring
+\item Multi-call completion scoring with geometric-mean normalization
+\item Eliminates confidence concentration bias from raw logprob sums
+\item Support for multiple inference backends: Ollama, vLLM, SGLang, llama.cpp
 \item Batch processing for multiple texts
 \item Support for simple labels or labels with descriptions
-\item Custom system prompt overrides
-\item Multiple inference backends: Ollama, vLLM, SGLang, llama.cpp
 }
 }
 
-\section{Ollama Backend (original)}{
+\section{Quick Start}{
 
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{classifier <- ollama_classifier("llama3.2")
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{backend <- ollama_backend("llama3.2")
+classifier <- llm_classifier(backend)
 
 result <- classify(
   classifier,
@@ -37,18 +44,13 @@ print(result$confidence)
 }\if{html}{\out{</div>}}
 }
 
-\section{Generic Backend (vLLM, SGLang, llama.cpp)}{
-
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{backend <- vllm_backend("meta-llama/Llama-3.2-3B-Instruct")
-classifier <- llm_classifier(backend)
-
-result <- classify(
-  classifier,
-  text = "I love this product!",
-  choices = c("positive", "negative", "neutral")
-)
-}\if{html}{\out{</div>}}
+\section{Choosing a Scoring Method}{
+\tabular{llll}{
+   Method \tab API Calls \tab Exactness \tab When to Use \cr
+   \code{generate(max_calls = 1)} \tab 1 \tab Approximate \tab Speed-critical \cr
+   \code{generate(max_calls = NULL)} \tab 1-N \tab Exact \tab Adaptive resolution \cr
+   \code{classify()} \tab N \tab Always exact \tab Research, calibration \cr
+}
 }
 
 \references{

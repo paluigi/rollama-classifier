@@ -1,14 +1,14 @@
 Package: rollama
 Type: Package
 Title: Classify Text with LLMs on Ollama and Other Backends
-Version: 0.3.0
+Version: 0.4.0
 Author: Luigi Palumbo <paluigi@users.noreply.github.com>
 Maintainer: Luigi Palumbo <paluigi@users.noreply.github.com>
 Description: A wrapper around the Ollama REST API and other inference engines
     (vLLM, SGLang, llama.cpp) for text classification with constrained output
-    and confidence scoring. Provides constrained generation via JSON schema
-    with enum constraints, multi-call evaluation with softmax for calibrated
-    probability scores, and support for multiple inference backends.
+    and confidence scoring. Provides adaptive constrained generation with
+    divergence-aware confidence scoring and multi-call completion scoring
+    with geometric-mean normalization. Supports multiple inference backends.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
