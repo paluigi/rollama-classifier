@@ -4,6 +4,7 @@
 \alias{ollama-api}
 \title{Ollama API Client Helpers}
 \description{
-Low-level functions for interacting with the Ollama REST API.
+Low-level functions for interacting with the Ollama REST API (native
+endpoints: /api/chat, /api/generate, /api/tokenize).
 }
 \keyword{internal}

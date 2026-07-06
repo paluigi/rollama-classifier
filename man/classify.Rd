@@ -7,8 +7,7 @@
 classify(classifier, text, choices, system_prompt = NULL, ...)
 }
 \arguments{
-\item{classifier}{A classifier object created by \code{\link[=ollama_classifier]{ollama_classifier()}} or
-\code{\link[=llm_classifier]{llm_classifier()}}.}
+\item{classifier}{A classifier object created by \code{\link[=llm_classifier]{llm_classifier()}}.}
 
 \item{text}{Character. The text to classify.}
 
@@ -29,7 +28,8 @@ for each, and applies softmax for calibrated probability scores.
 }
 \examples{
 \dontrun{
-classifier <- ollama_classifier("llama3.2")
+backend <- ollama_backend("llama3.2")
+classifier <- llm_classifier(backend)
 result <- classify(
   classifier,
   text = "I love this product!",

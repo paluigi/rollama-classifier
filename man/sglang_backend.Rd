@@ -16,23 +16,22 @@ sglang_backend(
 \arguments{
 \item{model}{Character. Model identifier.}
 
-\item{base_url}{Character. Base URL of the SGLang server.
-Defaults to \code{"http://localhost:30000/v1"}.}
+\item{base_url}{Character. Base URL of the vLLM server.}
 
-\item{api_key}{Character. API key. Defaults to \code{"not-needed"}.}
+\item{api_key}{Character. API key.}
 
-\item{timeout}{Numeric. Request timeout in seconds. Default 120.}
+\item{timeout}{Numeric. Request timeout in seconds.}
 
-\item{max_tokens}{Integer. Max tokens to generate. Default 256.}
+\item{max_tokens}{Integer. Max tokens to generate.}
 
 \item{extra_body}{List. Extra parameters merged into every request.}
 }
 \value{
-A backend environment with methods \code{chat()} and \code{achat()}.
+A backend list.
 }
 \description{
-Create a backend for the SGLang inference server. SGLang is a fast
-serving system for large language models.
+Backend for the SGLang inference server. Uses regex constraint for
+bare-label generation.
 }
 \examples{
 \dontrun{

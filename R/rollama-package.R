@@ -3,21 +3,27 @@
 #' @description
 #' A wrapper around the Ollama REST API and other inference engines
 #' (vLLM, SGLang, llama.cpp) for text classification with constrained output
-#' and confidence scoring.
+#' and confidence scoring. Provides two scoring methods:
+#'
+#' - `generate()`: Adaptive constrained generation with divergence-aware
+#'   confidence scoring, budget-controlled via `max_calls`.
+#' - `classify()`: Multi-call completion scoring with geometric-mean
+#'   normalization. Gold-standard accuracy.
 #'
 #' @section Features:
 #' \itemize{
-#'   \item Constrained output via JSON schema with enum constraints
-#'   \item Confidence scoring via multi-call evaluation with softmax
+#'   \item Adaptive constrained generation with trie-based confidence scoring
+#'   \item Multi-call completion scoring with geometric-mean normalization
+#'   \item Eliminates confidence concentration bias from raw logprob sums
+#'   \item Support for multiple inference backends: Ollama, vLLM, SGLang, llama.cpp
 #'   \item Batch processing for multiple texts
 #'   \item Support for simple labels or labels with descriptions
-#'   \item Custom system prompt overrides
-#'   \item Multiple inference backends: Ollama, vLLM, SGLang, llama.cpp
 #' }
 #'
-#' @section Ollama Backend (original):
+#' @section Quick Start:
 #' ```r
-#' classifier <- ollama_classifier("llama3.2")
+#' backend <- ollama_backend("llama3.2")
+#' classifier <- llm_classifier(backend)
 #'
 #' result <- classify(
 #'   classifier,
@@ -28,17 +34,13 @@
 #' print(result$confidence)
 #' ```
 #'
-#' @section Generic Backend (vLLM, SGLang, llama.cpp):
-#' ```r
-#' backend <- vllm_backend("meta-llama/Llama-3.2-3B-Instruct")
-#' classifier <- llm_classifier(backend)
+#' @section Choosing a Scoring Method:
 #'
-#' result <- classify(
-#'   classifier,
-#'   text = "I love this product!",
-#'   choices = c("positive", "negative", "neutral")
-#' )
-#' ```
+#' | Method | API Calls | Exactness | When to Use |
+#' |--------|-----------|-----------|------------|
+#' | `generate(max_calls = 1)` | 1 | Approximate | Speed-critical |
+#' | `generate(max_calls = NULL)` | 1-N | Exact | Adaptive resolution |
+#' | `classify()` | N | Always exact | Research, calibration |
 #'
 #' @docType package
 #' @name rollama

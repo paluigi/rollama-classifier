@@ -8,8 +8,9 @@ ollama_chat(
   base_url,
   model,
   messages,
-  format = NULL,
+  constrain_labels = NULL,
   logprobs = FALSE,
+  top_logprobs = NULL,
   options = NULL
 )
 }
@@ -20,16 +21,19 @@ ollama_chat(
 
 \item{messages}{List of message lists, each with \code{role} and \code{content}.}
 
-\item{format}{List or \code{NULL}. Optional JSON schema for structured output.}
+\item{constrain_labels}{Character vector or \code{NULL}. Labels to constrain output to.}
 
 \item{logprobs}{Logical. Whether to return log probabilities.}
 
-\item{options}{List. Additional model options (e.g. temperature).}
+\item{top_logprobs}{Integer or \code{NULL}. Number of top alternatives per token.}
+
+\item{options}{List. Additional model options.}
 }
 \value{
-List with \code{content} and optionally \code{logprobs}.
+A list with \code{content}, \code{label}, \code{logprobs}, and \code{raw}.
 }
 \description{
-Send a chat completion request to Ollama
+Uses the native \verb{/api/chat} endpoint. When \code{constrain_labels} is provided,
+builds a JSON enum schema and passes it via the \code{format} parameter.
 }
 \keyword{internal}

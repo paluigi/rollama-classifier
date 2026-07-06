@@ -14,7 +14,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-The `rollama` package provides text classification with constrained output and confidence scoring using multiple inference backends: **Ollama**, **vLLM**, **SGLang**, and **llama.cpp**.
+The `rollama` package provides text classification with constrained
+output and calibrated confidence scoring using four inference backends:
+**Ollama**, **vLLM**, **SGLang**, and **llama.cpp**.
+
+Every backend is constructed with a backend function and wrapped in a
+single `llm_classifier()`. The classifier then offers two scoring
+methods — `generate()` and `classify()` — both returning a
+`classification_result` with a prediction, confidence, and a full
+probability distribution.
 
 ## Installation
 
@@ -26,7 +34,8 @@ pak::pak("paluigi/rollama-classifier")
 
 ### Prerequisites
 
-**Ollama backend**: Install [Ollama](https://ollama.com/download) and pull a model:
+**Ollama backend**: Install [Ollama](https://ollama.com/download) (>=v0.12)
+and pull a model:
 
 ```bash
 ollama pull llama3.2
@@ -36,12 +45,13 @@ Recommended models: `llama3.2`, `llama3.1`, `mistral`, `qwen2.5`.
 
 ## Quick Start
 
-### Ollama Backend (Original)
+### Ollama Backend
 
 ```{r eval=FALSE}
 library(rollama)
 
-classifier <- ollama_classifier("llama3.2")
+backend <- ollama_backend(model = "llama3.2")
+classifier <- llm_classifier(backend)
 
 result <- classify(
   classifier,
@@ -68,6 +78,77 @@ result <- classify(
 )
 ```
 
+## `generate()` vs `classify()`
+
+rollama offers two complementary scoring methods. Both return a
+`classification_result`; they differ in how they spend API calls and how
+their confidence is computed.
+
+| | `generate()` | `classify()` |
+|---|---|---|
+| **Strategy** | Adaptive trie-masked generation | Multi-call completion scoring |
+| **API calls** | 1 to `max_calls` (budget-controlled) | N calls for N labels |
+| **Confidence** | Divergence-aware; exact when fully resolved | Always exact (calibrated) |
+| **Normalization** | Geometric mean of per-token logprobs | Geometric mean of per-token logprobs |
+| **`method`** | `"adaptive_generate"` | `"multi_call"` |
+| **`approximate`** | `TRUE` if any label has partial coverage | Always `FALSE` |
+
+- **`generate()`** makes one or a few constrained calls and reconstructs
+  per-label logprobs from the winning generation path using a prefix
+  trie. It is fast and budget-controlled, but the result may be
+  *approximate* when the budget runs out before every label is fully
+  resolved.
+- **`classify()`** scores every label independently via the backend's
+  completion-scoring endpoint, then applies a softmax over
+  geometric-mean-normalized scores. It always makes N calls for N labels
+  and is always exact.
+
+### `max_calls`
+
+The `max_calls` argument controls `generate()`'s API budget:
+
+| `max_calls` | Behavior | `approximate` |
+|---|---|---|
+| `1` (default) | Single constrained call; fast | Possibly `TRUE` |
+| `K` (integer) | Adaptive: resolves ambiguity up to K calls | Possibly `TRUE` |
+| `NULL` | Resolves all labels; exact | `FALSE` |
+
+```{r eval=FALSE}
+# Fast, single-call prediction (may be approximate)
+result <- generate(classifier, text = txt, choices = choices, max_calls = 1)
+print(result$approximate) # TRUE if any label was only partially scored
+
+# Adaptive: spend up to 3 calls to resolve ambiguities
+result <- generate(classifier, text = txt, choices = choices, max_calls = 3)
+
+# Exact: resolve every label fully
+result <- generate(classifier, text = txt, choices = choices, max_calls = NULL)
+```
+
+### `coverage` and `approximate`
+
+When `generate()` cannot fully resolve a label within the call budget,
+that label's token logprobs are only partially known. Two fields report
+this:
+
+- **`result$coverage`** — a named numeric vector giving the fraction of
+  tokens scored per label (0.0 to 1.0). `1.0` means the label is fully
+  resolved.
+- **`result$approximate`** — `TRUE` if *any* label has coverage below
+  1.0. For `classify()` this is always `FALSE`.
+
+```{r eval=FALSE}
+result <- generate(classifier, text = txt, choices = choices, max_calls = 1)
+
+print(result$coverage)
+#>   positive    negative     neutral
+#>         1.0         0.5         1.0
+print(result$approximate)
+#> TRUE
+print(result$n_calls)
+#> 1
+```
+
 ## Usage Patterns
 
 ### Basic Classification
@@ -75,7 +156,8 @@ result <- classify(
 Classify text into predefined choices:
 
 ```{r eval=FALSE}
-classifier <- ollama_classifier("llama3.2")
+backend <- ollama_backend(model = "llama3.2")
+classifier <- llm_classifier(backend)
 
 result <- classify(
   classifier,
@@ -117,21 +199,29 @@ result <- classify(
 )
 ```
 
-### Generate Only (Fastest)
+### Adaptive Generation
 
-When you only need the prediction without confidence scores:
+`generate()` returns a `classification_result` just like `classify()`,
+reconstructed from constrained generation:
 
 ```{r eval=FALSE}
-prediction <- generate(
+result <- generate(
   classifier,
   text = "The team won the championship!",
-  choices = c("sports", "finance", "politics")
+  choices = c("sports", "finance", "politics"),
+  max_calls = 1
 )
+
+print(result$prediction)
+print(result$confidence)
+print(result$method)      # "adaptive_generate"
+print(result$approximate) # TRUE if any label is partially scored
 ```
 
 ### Batch Classification
 
-Classify multiple texts efficiently:
+Classify multiple texts efficiently. The batch variants return a list of
+`classification_result` objects:
 
 ```{r eval=FALSE}
 texts <- c(
@@ -160,13 +250,30 @@ results <- batch_classify(
 )
 ```
 
+## The `classification_result` Object
+
+Both methods return the same structure:
+
+```{r eval=FALSE}
+result$prediction      # Character: predicted label
+result$confidence      # Numeric (0-1): confidence score
+result$probabilities   # Named numeric: probability distribution (sums to 1)
+result$method          # "adaptive_generate" or "multi_call"
+result$approximate     # Logical: TRUE if any label has partial coverage
+result$coverage        # Named numeric: per-label token coverage (0.0-1.0)
+result$n_calls         # Integer: number of API calls made
+result$raw_response    # List: raw data for debugging
+```
+
 ## Choosing a Method
 
-| Use Case                              | Recommended Method                    |
+| Use Case | Recommended Method |
 |---------------------------------------|----------------------------------------|
-| Speed is critical, no confidence       | `generate()`                           |
-| Confidence scores needed               | `classify()`                           |
-| Batch processing                       | `batch_classify()` or `batch_generate()`  |
+| Speed is critical, limited call budget | `generate(max_calls = 1)` |
+| Balanced speed and accuracy | `generate(max_calls = K)` |
+| Exact confidence on a budget | `generate(max_calls = NULL)` |
+| Maximum calibration accuracy | `classify()` |
+| Batch processing | `batch_classify()` or `batch_generate()` |
 
 ## Sample Data
 
@@ -179,11 +286,12 @@ head(sample_tickets)
 
 ```{r eval=FALSE}
 # Test classification accuracy
-predictions <- batch_generate(
+results <- batch_classify(
   classifier,
   texts = sample_tickets$text,
   choices = c("billing", "technical_support", "account", "general")
 )
 
+predictions <- purrr::map_chr(results, "prediction")
 mean(predictions == sample_tickets$expected_label)
 ```

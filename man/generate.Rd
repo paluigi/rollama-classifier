@@ -4,11 +4,10 @@
 \alias{generate}
 \title{Generate a constrained classification}
 \usage{
-generate(classifier, text, choices, system_prompt = NULL, ...)
+generate(classifier, text, choices, system_prompt = NULL, ..., max_calls = 1L)
 }
 \arguments{
-\item{classifier}{A classifier object created by \code{\link[=ollama_classifier]{ollama_classifier()}} or
-\code{\link[=llm_classifier]{llm_classifier()}}.}
+\item{classifier}{A classifier object created by \code{\link[=llm_classifier]{llm_classifier()}}.}
 
 \item{text}{Character. The text to classify.}
 
@@ -18,19 +17,23 @@ labels to descriptions.}
 \item{system_prompt}{Character or \code{NULL}. Optional custom system prompt.}
 
 \item{...}{Additional arguments (for future extensibility).}
+
+\item{max_calls}{Integer or \code{NULL}. Maximum number of API calls.
+\code{1} = single call (fast, approximate). \code{NULL} = resolve all (exact).}
 }
 \value{
-Character. The predicted choice label.
+A \code{\link[=classification_result]{classification_result()}} list.
 }
 \description{
-Generic for constrained output generation. Uses JSON schema with enum
-constraint to ensure only valid choices are generated. This is the fastest
-method as it only makes one API call and doesn't compute confidence scores.
+Generic for adaptive constrained generation. Makes 1 to \code{max_calls}
+constrained API calls and reconstructs per-label logprobs via a prefix
+trie. Confidence is exact when fully resolved, approximate otherwise.
 }
 \examples{
 \dontrun{
-classifier <- ollama_classifier("llama3.2")
-prediction <- generate(
+backend <- ollama_backend("llama3.2")
+classifier <- llm_classifier(backend)
+result <- generate(
   classifier,
   text = "The team won the championship!",
   choices = c("sports", "finance", "politics")

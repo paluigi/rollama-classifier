@@ -14,29 +14,24 @@ llamacpp_backend(
 )
 }
 \arguments{
-\item{model}{Character. Model identifier (filename or alias).}
+\item{model}{Character. Model identifier.}
 
-\item{base_url}{Character. Base URL of the llama.cpp server.
-Defaults to \code{"http://localhost:8080/v1"}.}
+\item{base_url}{Character. Base URL of the vLLM server.}
 
-\item{api_key}{Character. API key. Defaults to \code{"not-needed"}.}
+\item{api_key}{Character. API key.}
 
-\item{timeout}{Numeric. Request timeout in seconds. Default 120.}
+\item{timeout}{Numeric. Request timeout in seconds.}
 
-\item{max_tokens}{Integer. Max tokens to generate. Default 256.}
+\item{max_tokens}{Integer. Max tokens to generate.}
 
 \item{extra_body}{List. Extra parameters merged into every request.}
 }
 \value{
-A backend environment with methods \code{chat()} and \code{achat()}.
+A backend list.
 }
 \description{
-Create a backend for the llama.cpp server (\code{llama-server}). Ideal for CPU
-or mixed CPU/GPU environments.
-}
-\note{
-JSON schema constraints and logprobs require llama.cpp to be
-compiled with \code{LLAMA_JSON_SCHEMA} and \code{LLAMA_SUPPORT_LOGPROBS} flags.
+Backend for the llama.cpp server (\code{llama-server}). Uses GBNF grammar for
+bare-label generation, producing clean label text with no JSON wrapper.
 }
 \examples{
 \dontrun{

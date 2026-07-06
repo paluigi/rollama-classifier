@@ -8,6 +8,10 @@ classification_result(
   prediction,
   confidence,
   probabilities,
+  method = "multi_call",
+  approximate = FALSE,
+  coverage = numeric(0),
+  n_calls = 1L,
   raw_response = list()
 )
 }
@@ -20,8 +24,19 @@ prediction.}
 \item{probabilities}{Named numeric vector. Probability distribution over
 all choices (sums to 1).}
 
-\item{raw_response}{List. Raw response from the API for debugging.
-May be a list with \code{logprobs} or the raw API response.}
+\item{method}{Character. Scoring method used: \code{"adaptive_generate"} or
+\code{"multi_call"}.}
+
+\item{approximate}{Logical. \code{TRUE} if any label has partial coverage
+(unresolved tokens). Only relevant for \code{adaptive_generate}; always
+\code{FALSE} for \code{multi_call}.}
+
+\item{coverage}{Named numeric vector. Per-label fraction of tokens scored
+(0.0 to 1.0). \code{1.0} = fully resolved.}
+
+\item{n_calls}{Integer. Number of API calls made.}
+
+\item{raw_response}{List. Raw response data for debugging.}
 }
 \value{
 A list of class \code{classification_result} with components:
@@ -29,19 +44,22 @@ A list of class \code{classification_result} with components:
 \item{prediction}{Character. The predicted label.}
 \item{confidence}{Numeric. Confidence score (0-1).}
 \item{probabilities}{Named numeric vector. Probability distribution.}
+\item{method}{Character. Scoring method used.}
+\item{approximate}{Logical. Whether scores are approximate.}
+\item{coverage}{Named numeric vector. Per-label token coverage.}
+\item{n_calls}{Integer. Number of API calls.}
 \item{raw_response}{List. Raw API response for debugging.}
 }
 }
 \description{
-Result of a classification operation. Returned by \code{\link[=classify]{classify()}} and
-\code{\link[=batch_classify]{batch_classify()}}.
+Result of a classification operation. Returned by \code{\link[=classify]{classify()}}, \code{\link[=generate]{generate()}},
+and their batch variants.
 }
 \examples{
 res <- classification_result(
   prediction = "positive",
   confidence = 0.85,
-  probabilities = c(positive = 0.85, negative = 0.10, neutral = 0.05),
-  raw_response = list()
+  probabilities = c(positive = 0.85, negative = 0.10, neutral = 0.05)
 )
 print(res$prediction)
 }

@@ -1,29 +1,32 @@
 #' Generate a constrained classification
 #'
-#' Generic for constrained output generation. Uses JSON schema with enum
-#' constraint to ensure only valid choices are generated. This is the fastest
-#' method as it only makes one API call and doesn't compute confidence scores.
+#' Generic for adaptive constrained generation. Makes 1 to `max_calls`
+#' constrained API calls and reconstructs per-label logprobs via a prefix
+#' trie. Confidence is exact when fully resolved, approximate otherwise.
 #'
-#' @param classifier A classifier object created by [ollama_classifier()] or
-#'   [llm_classifier()].
+#' @param classifier A classifier object created by [llm_classifier()].
 #' @param text Character. The text to classify.
 #' @param choices Either a character vector of labels or a named list mapping
 #'   labels to descriptions.
 #' @param system_prompt Character or `NULL`. Optional custom system prompt.
 #' @param ... Additional arguments (for future extensibility).
+#' @param max_calls Integer or `NULL`. Maximum number of API calls.
+#'   `1` = single call (fast, approximate). `NULL` = resolve all (exact).
 #'
-#' @return Character. The predicted choice label.
+#' @return A [classification_result()] list.
 #' @export
 #' @examples
 #' \dontrun{
-#' classifier <- ollama_classifier("llama3.2")
-#' prediction <- generate(
+#' backend <- ollama_backend("llama3.2")
+#' classifier <- llm_classifier(backend)
+#' result <- generate(
 #'   classifier,
 #'   text = "The team won the championship!",
 #'   choices = c("sports", "finance", "politics")
 #' )
 #' }
-generate <- function(classifier, text, choices, system_prompt = NULL, ...) {
+generate <- function(classifier, text, choices, system_prompt = NULL, ...,
+                     max_calls = 1L) {
   UseMethod("generate")
 }
 
@@ -33,8 +36,7 @@ generate <- function(classifier, text, choices, system_prompt = NULL, ...) {
 #' choice. Makes N API calls for N choices, computes log P(choice|context)
 #' for each, and applies softmax for calibrated probability scores.
 #'
-#' @param classifier A classifier object created by [ollama_classifier()] or
-#'   [llm_classifier()].
+#' @param classifier A classifier object created by [llm_classifier()].
 #' @param text Character. The text to classify.
 #' @param choices Either a character vector of labels or a named list.
 #' @param system_prompt Character or `NULL`. Optional custom system prompt.
@@ -45,7 +47,8 @@ generate <- function(classifier, text, choices, system_prompt = NULL, ...) {
 #' @export
 #' @examples
 #' \dontrun{
-#' classifier <- ollama_classifier("llama3.2")
+#' backend <- ollama_backend("llama3.2")
+#' classifier <- llm_classifier(backend)
 #' result <- classify(
 #'   classifier,
 #'   text = "I love this product!",
