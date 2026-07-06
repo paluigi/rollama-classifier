@@ -14,19 +14,13 @@ home:
       href: https://github.com/paluigi/rollama-classifier
 
 reference:
-  - title: "Ollama Backend"
+  - title: "Backends"
     contents:
-      - ollama_classifier
-      - generate.ollama_classifier
-      - classify.ollama_classifier
-      - batch_generate.ollama_classifier
-      - batch_classify.ollama_classifier
-  - title: "LLM Backends"
-    contents:
+      - ollama_backend
       - vllm_backend
       - sglang_backend
       - llamacpp_backend
-  - title: "Generic Classifier"
+  - title: "Classifier"
     contents:
       - llm_classifier
       - generate.llm_classifier
@@ -47,5 +41,3 @@ reference:
     contents:
       - build_classification_prompt
       - get_choice_labels
-      - format_choices
-      - stable_softmax
