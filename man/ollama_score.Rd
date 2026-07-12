@@ -2,9 +2,16 @@
 % Please edit documentation in R/ollama-api.R
 \name{ollama_score}
 \alias{ollama_score}
-\title{Score a completion using Ollama's generate endpoint with suffix}
+\title{Score a completion by forcing it as the single valid label}
 \usage{
-ollama_score(base_url, model, messages, completion, options = NULL)
+ollama_score(
+  base_url,
+  model,
+  messages,
+  completion,
+  extra_body = list(),
+  token_cache = NULL
+)
 }
 \arguments{
 \item{base_url}{Character. Base URL of the Ollama server.}
@@ -15,14 +22,19 @@ ollama_score(base_url, model, messages, completion, options = NULL)
 
 \item{completion}{Character. The completion text to score.}
 
-\item{options}{List. Additional options.}
+\item{extra_body}{List. Extra parameters for options.}
+
+\item{token_cache}{Environment. Memoization cache for tokenize (shared).}
 }
 \value{
 A list with \code{completion} and \code{logprobs}.
 }
 \description{
-Uses \verb{/api/generate} with \code{suffix=completion} to compute per-token logprobs
-of the completion given the prompt context. No generation occurs
-(\code{num_predict = 0}).
+Modern Ollama (and instruct models in general) do not support the
+fill-in-the-middle ("insert") mode that \verb{/api/generate} with \verb{suffix=}
+requires. Instead, this forces \code{completion} as the only valid label via
+a JSON-enum constrained \code{chat()} call and reads back the model's genuine
+per-token logprobs (teacher forcing). No free generation occurs beyond
+the forced label.
 }
 \keyword{internal}

@@ -33,8 +33,15 @@ Backend for the Ollama runtime (>=v0.12) via the native Ollama REST API.
 
 Ollama uses JSON Schema enum for label constraints. The model generates
 \code{{"label": "<chosen>"}}. Structural JSON tokens are filtered during trie
-reconstruction. Context-dependent tokenization ensures the trie matches
-the actual response tokens.
+reconstruction and completion scoring.
+
+Modern Ollama removed the \verb{/api/tokenize} endpoint and does not support
+fill-in-the-middle ("insert") on instruct models. This backend therefore
+obtains both label tokenization and completion scores through empirical
+\emph{forced constrained generation} (forcing a label as the only valid choice
+and reading back the model's genuine per-token logprobs). No
+\verb{/api/tokenize} or \code{suffix}/insert calls are used. Tokenization results
+are memoized per label.
 }
 \examples{
 \dontrun{

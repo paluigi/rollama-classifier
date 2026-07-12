@@ -2,9 +2,9 @@
 % Please edit documentation in R/ollama-api.R
 \name{ollama_tokenize}
 \alias{ollama_tokenize}
-\title{Tokenize text using Ollama's tokenize API}
+\title{Tokenize text via empirical forced generation}
 \usage{
-ollama_tokenize(base_url, model, text, context = NULL)
+ollama_tokenize(base_url, model, text, context = NULL, token_cache = NULL)
 }
 \arguments{
 \item{base_url}{Character. Base URL of the Ollama server.}
@@ -13,13 +13,24 @@ ollama_tokenize(base_url, model, text, context = NULL)
 
 \item{text}{Character. The text to tokenize.}
 
-\item{context}{Character or \code{NULL}. Prefix for context-dependent tokenization.}
+\item{context}{Character or \code{NULL}. Ignored (accepted for interface compat).}
+
+\item{token_cache}{Environment. Memoization cache.}
 }
 \value{
-Character vector of token strings (or IDs as strings).
+Character vector of token strings.
 }
 \description{
-If \code{context} is provided, tokenizes \code{context + text} and returns only the
-tokens corresponding to \code{text} (context-dependent tokenization).
+Modern Ollama removed the \verb{/api/tokenize} endpoint (and the SDK no
+longer exposes a \code{tokenize} method). To get the \emph{exact} token strings
+the model emits for \code{text} inside the JSON wrapper, this forces \code{text}
+as the only valid label in a constrained \code{chat()} call and reads back
+the emitted value tokens. Results are memoized per label.
+}
+\details{
+The \code{context} argument is accepted for interface compatibility but
+ignored: Ollama always wraps the label in the constant JSON prefix
+(double-quote-brace-label-colon-space-double-quote) regardless of
+surrounding prompt tokens.
 }
 \keyword{internal}

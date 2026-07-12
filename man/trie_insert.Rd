@@ -14,9 +14,10 @@ trie_insert(trie, label, tokens)
 \item{tokens}{Character vector of token strings.}
 }
 \value{
-A modified copy of the trie (R lists are copy-on-modify).
+A modified copy of the trie.
 }
 \description{
-Insert a label into the trie
+Uses a recursive approach to rebuild the nested list, since R lists are
+copy-on-modify and in-place mutation of nested nodes does not work.
 }
 \keyword{internal}

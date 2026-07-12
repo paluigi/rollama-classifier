@@ -31,7 +31,12 @@ A backend list.
 }
 \description{
 Backend for the SGLang inference server. Uses regex constraint for
-bare-label generation.
+bare-label generation, producing clean label text with no JSON wrapper.
+
+\code{score()} uses echo/prefill (\verb{/v1/completions} with \code{echo=TRUE}) to
+recover genuine per-label logprobs. \code{tokenize()} uses forced constrained
+generation via regex so token boundaries match the actual
+constrained-generation output. Results are memoized per label.
 }
 \examples{
 \dontrun{

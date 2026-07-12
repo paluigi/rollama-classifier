@@ -32,6 +32,11 @@ A backend list.
 \description{
 Backend for the llama.cpp server (\code{llama-server}). Uses GBNF grammar for
 bare-label generation, producing clean label text with no JSON wrapper.
+
+Both \code{score()} and \code{tokenize()} use forced constrained generation via
+GBNF grammar because llama.cpp does not support \code{echo=TRUE} on the
+completions endpoint (it only returns generated-token logprobs, not
+prompt tokens). Results are memoized per label.
 }
 \examples{
 \dontrun{

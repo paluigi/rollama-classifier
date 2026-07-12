@@ -5,6 +5,14 @@
 \title{Ollama API Client Helpers}
 \description{
 Low-level functions for interacting with the Ollama REST API (native
-endpoints: /api/chat, /api/generate, /api/tokenize).
+\verb{/api/chat} endpoint).
+}
+\details{
+Modern Ollama (>=v0.12) removed the \verb{/api/tokenize} endpoint and does not
+support fill-in-the-middle ("insert") on instruct models. This module
+therefore obtains both label tokenization and completion scores through
+\emph{empirical forced constrained generation}: it forces a label as the only
+valid choice in a \code{chat()} call and reads back the model's genuine
+per-token logprobs. No \verb{/api/tokenize} or \code{suffix}/insert calls are used.
 }
 \keyword{internal}

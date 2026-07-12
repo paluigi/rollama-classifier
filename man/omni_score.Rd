@@ -2,7 +2,7 @@
 % Please edit documentation in R/backends.R
 \name{omni_score}
 \alias{omni_score}
-\title{Score a completion via OpenAI-compatible completions endpoint}
+\title{Score a completion via echo/prefill logprobs (vLLM, SGLang)}
 \usage{
 omni_score(
   base_url,
@@ -33,6 +33,10 @@ omni_score(
 A list with \code{completion} and \code{logprobs}.
 }
 \description{
-Score a completion via OpenAI-compatible completions endpoint
+Uses \verb{/v1/completions} with \code{echo=TRUE} to recover the model's genuine
+per-token logprobs for the label as an unexpected continuation of the
+prompt. The \verb{/tokenize} endpoint pinpoints the exact label-token boundary.
+The spurious \code{max_tokens=1} generated token is discarded by slicing to
+\code{total_len}.
 }
 \keyword{internal}
