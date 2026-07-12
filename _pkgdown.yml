@@ -23,10 +23,6 @@ reference:
   - title: "Classifier"
     contents:
       - llm_classifier
-      - generate.llm_classifier
-      - classify.llm_classifier
-      - batch_generate.llm_classifier
-      - batch_classify.llm_classifier
   - title: "Generic Methods"
     contents:
       - generate
