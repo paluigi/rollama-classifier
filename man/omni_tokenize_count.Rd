@@ -6,7 +6,22 @@
 \usage{
 omni_tokenize_count(base_url, api_key, timeout, model, text)
 }
+\arguments{
+\item{base_url}{Character. Base URL (with \verb{/v1}).}
+
+\item{api_key}{Character. API key.}
+
+\item{timeout}{Numeric. Timeout in seconds.}
+
+\item{model}{Character. Model name.}
+
+\item{text}{Character. Text to tokenize.}
+}
+\value{
+Integer. Number of tokens.
+}
 \description{
-Count tokens via OpenAI-compatible tokenize endpoint
+Uses the correct \code{"prompt"} field name for the \verb{/tokenize} endpoint.
+Raises on HTTP errors — no silent masking.
 }
 \keyword{internal}

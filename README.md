@@ -22,7 +22,7 @@ a full probability distribution, and diagnostics.
 - **Calibrated confidence**: geometric-mean normalization eliminates the
   length/concentration bias of raw logprob summation
 - **Constrained output**: every backend constrains generation to valid
-  labels (JSON enum, `guided_choice`, regex, or GBNF grammar)
+  labels (JSON enum, `structured_outputs.choice`, regex, or GBNF grammar)
 - **Budget control**: `max_calls` lets you trade accuracy for speed
 - **Unified backends**: one `llm_classifier()` works with Ollama, vLLM,
   SGLang, and llama.cpp

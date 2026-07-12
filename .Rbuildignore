@@ -6,3 +6,4 @@
 ^pkgdown$
 ^\.lintr$
 ^CRAN-SUBMISSION$
+^local_tests$

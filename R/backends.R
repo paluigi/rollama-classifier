@@ -13,6 +13,37 @@ NULL
 # Shared helpers for OpenAI-compatible backends
 # =========================================================================
 
+#' End-of-sequence / special tokens to filter from constrained responses
+#'
+#' Covers Llama-3, Phi, and Qwen EOS markers.
+#' @keywords internal
+SPECIAL_TOKENS <- c(
+  "<|im_end|>",
+  "<|endoftext|>",
+  "</s>",
+  "<|end_of_turn|>",
+  "<|eot_id|>",
+  "<|end|>",
+  "<|eom_id|>"
+)
+
+#' Filter out special / end-of-sequence tokens from a logprobs list
+#'
+#' For bare-label backends (vLLM, SGLang, llama.cpp), the constraint
+#' guarantees only label text is generated, so we just need to remove
+#' special/EOS tokens and empty strings.
+#'
+#' @param logprobs List of logprob entries with `token`, `logprob`,
+#'   `top_logprobs`.
+#' @return Filtered list of logprob entries.
+#' @keywords internal
+filter_special_tokens <- function(logprobs) {
+  purrr::keep(logprobs, ~ {
+    tok <- .x$token
+    !is.null(tok) && nzchar(trimws(tok)) && !(tok %in% SPECIAL_TOKENS)
+  })
+}
+
 #' Build HTTP headers for API requests
 #'
 #' @param api_key Character. API key.
@@ -113,7 +144,48 @@ send_omni_chat <- function(base_url, api_key, timeout, body) {
     parse_omni_response()
 }
 
-#' Score a completion via OpenAI-compatible completions endpoint
+#' Count tokens via OpenAI-compatible tokenize endpoint
+#'
+#' Uses the correct `"prompt"` field name for the `/tokenize` endpoint.
+#' Raises on HTTP errors — no silent masking.
+#'
+#' @param base_url Character. Base URL (with `/v1`).
+#' @param api_key Character. API key.
+#' @param timeout Numeric. Timeout in seconds.
+#' @param model Character. Model name.
+#' @param text Character. Text to tokenize.
+#' @return Integer. Number of tokens.
+#' @keywords internal
+omni_tokenize_count <- function(base_url, api_key, timeout, model, text) {
+  body <- list(model = model, prompt = text)
+  req <- httr2::request(paste0(base_url, "/tokenize")) |>
+    httr2::req_method("POST") |>
+    httr2::req_headers(!!!build_headers(api_key)) |>
+    httr2::req_body_json(body) |>
+    httr2::req_timeout(timeout) |>
+    httr2::req_perform()
+
+  data <- httr2::resp_body_json(req, simplifyVector = FALSE)
+  length(data$tokens %||% list())
+}
+
+#' Strip the `/v1` suffix to get the server base URL (for `/tokenize`)
+#'
+#' @param base_url Character. Base URL with `/v1`.
+#' @return Character. Base URL without `/v1`.
+#' @keywords internal
+server_url <- function(base_url) {
+  url <- sub("/+$", "", base_url)
+  sub("/v1$", "", url)
+}
+
+#' Score a completion via echo/prefill logprobs (vLLM, SGLang)
+#'
+#' Uses `/v1/completions` with `echo=TRUE` to recover the model's genuine
+#' per-token logprobs for the label as an unexpected continuation of the
+#' prompt. The `/tokenize` endpoint pinpoints the exact label-token boundary.
+#' The spurious `max_tokens=1` generated token is discarded by slicing to
+#' `total_len`.
 #'
 #' @param base_url Character.
 #' @param api_key Character.
@@ -127,9 +199,16 @@ send_omni_chat <- function(base_url, api_key, timeout, body) {
 omni_score <- function(base_url, api_key, timeout, model, messages, completion,
                         extra_body = list()) {
   prompt <- render_prompt(messages)
+  prompt_with_completion <- paste0(prompt, completion)
+
+  surl <- server_url(base_url)
+
+  prompt_len <- omni_tokenize_count(surl, api_key, timeout, model, prompt)
+  total_len <- omni_tokenize_count(surl, api_key, timeout, model, prompt_with_completion)
+
   body <- list(
     model = model,
-    prompt = paste0(prompt, completion),
+    prompt = prompt_with_completion,
     echo = TRUE,
     max_tokens = 1,
     temperature = 0,
@@ -152,68 +231,125 @@ omni_score <- function(base_url, api_key, timeout, model, messages, completion,
   token_lps_list <- all_lp$token_logprobs %||% list()
   top_lps_list <- all_lp$top_logprobs %||% list()
 
-  # Find completion start by counting prompt tokens
-  prompt_n <- omni_tokenize_count(base_url, api_key, timeout, model, prompt)
+  # Slice to completion tokens (R is 1-based: prompt_len+1 .. total_len)
+  if (total_len > prompt_len) {
+    idx <- seq(prompt_len + 1L, total_len)
+  } else {
+    idx <- integer(0)
+  }
+
+  completion_tokens <- if (length(idx) > 0) tokens_list[idx] else list()
+  completion_lps <- if (length(idx) > 0) token_lps_list[idx] else list()
+  completion_top <- if (length(idx) > 0) top_lps_list[idx] else list()
 
   logprobs_out <- list()
-  if (length(tokens_list) > prompt_n) {
-    for (i in seq(prompt_n + 1L, length(tokens_list))) {
-      top <- list()
-      if (i <= length(top_lps_list) && !is.null(top_lps_list[[i]])) {
-        for (tok in names(top_lps_list[[i]])) {
-          top[[tok]] <- top_lps_list[[i]][[tok]]
-        }
+  for (i in seq_along(completion_tokens)) {
+    top <- list()
+    if (i <= length(completion_top) && !is.null(completion_top[[i]])) {
+      for (tok in names(completion_top[[i]])) {
+        top[[tok]] <- completion_top[[i]][[tok]]
       }
-      lp <- if (i <= length(token_lps_list)) token_lps_list[[i]] else 0.0
-      logprobs_out <- c(logprobs_out, list(list(
-        token = tokens_list[[i]],
-        logprob = lp %||% 0.0,
-        top_logprobs = top
-      )))
     }
+    lp <- if (i <= length(completion_lps)) completion_lps[[i]] else 0.0
+    logprobs_out <- c(logprobs_out, list(list(
+      token = completion_tokens[[i]],
+      logprob = lp %||% 0.0,
+      top_logprobs = top
+    )))
+  }
+
+  if (length(logprobs_out) == 0) {
+    stop(sprintf("score(%s): echo returned no label tokens",
+                 deparse(completion)), call. = FALSE)
   }
 
   list(completion = completion, logprobs = logprobs_out, raw = data)
 }
 
-#' Count tokens via OpenAI-compatible tokenize endpoint
+#' Score a completion via forced constrained generation (llama.cpp)
+#'
+#' Forces `completion` as the only valid choice via the backend's constraint
+#' mechanism and reads back the model's genuine per-token logprobs
+#' (teacher forcing, pre-mask). Used by backends that do not support
+#' `echo=TRUE` on the completions endpoint (llama.cpp).
+#'
+#' @param base_url Character.
+#' @param api_key Character.
+#' @param timeout Numeric.
+#' @param model Character.
+#' @param messages List.
+#' @param completion Character.
+#' @param extra_body List.
+#' @param apply_constraint_fn Function. Takes `(body, labels)` and adds the
+#'   backend-specific constraint field.
+#' @return A list with `completion` and `logprobs`.
 #' @keywords internal
-omni_tokenize_count <- function(base_url, api_key, timeout, model, text) {
-  tryCatch({
-    body <- list(model = model, prompt = text)
-    req <- httr2::request(paste0(base_url, "/tokenize")) |>
-      httr2::req_method("POST") |>
-      httr2::req_headers(!!!build_headers(api_key)) |>
-      httr2::req_body_json(body) |>
-      httr2::req_timeout(timeout) |>
-      httr2::req_perform()
-    length(httr2::resp_body_json(req, simplifyVector = FALSE)$tokens %||% list())
-  }, error = function(e) 0L)
-}
+omni_forced_score <- function(base_url, api_key, timeout, model, messages,
+                               completion, extra_body = list(),
+                               apply_constraint_fn) {
+  body <- build_omni_body(
+    model, messages, temperature = 0, logprobs = TRUE,
+    top_logprobs = 1, max_tokens = 256, extra_body = extra_body
+  )
+  body <- apply_constraint_fn(body, completion)
 
-#' Tokenize via OpenAI-compatible endpoint
-#' @keywords internal
-omni_tokenize <- function(base_url, api_key, timeout, model, text, context = NULL) {
-  full_text <- paste0(context %||% "", text)
-  body <- list(model = model, prompt = full_text)
-  req <- httr2::request(paste0(base_url, "/tokenize")) |>
-    httr2::req_method("POST") |>
-    httr2::req_headers(!!!build_headers(api_key)) |>
-    httr2::req_body_json(body) |>
-    httr2::req_timeout(timeout) |>
-    httr2::req_perform()
+  response <- send_omni_chat(base_url, api_key, timeout, body)
+  lps <- filter_special_tokens(response$logprobs %||% list())
 
-  data <- httr2::resp_body_json(req, simplifyVector = FALSE)
-  tokens <- data$tokens %||% integer(0)
-
-  if (!is.null(context)) {
-    ctx_n <- omni_tokenize_count(base_url, api_key, timeout, model, context)
-    if (ctx_n > 0 && ctx_n < length(tokens)) {
-      tokens <- tokens[(ctx_n + 1):length(tokens)]
-    }
+  if (length(lps) == 0) {
+    stop(sprintf("score(%s): forced generation returned no value tokens",
+                 deparse(completion)), call. = FALSE)
   }
 
-  as.character(tokens)
+  list(completion = completion, logprobs = lps, raw = response$raw)
+}
+
+#' Tokenize text via empirical forced constrained generation
+#'
+#' Forces `text` as the only valid label in a constrained `chat()` call and
+#' reads back the emitted value tokens. This is necessary because standalone
+#' BPE tokenization (via `/tokenize`) produces different token boundaries
+#' than the model emits under constraint guidance, which would break
+#' trie-based divergence scoring. Results are memoized per label.
+#'
+#' @param base_url Character.
+#' @param api_key Character.
+#' @param timeout Numeric.
+#' @param model Character.
+#' @param text Character. The text to tokenize.
+#' @param context Character or `NULL`. Ignored (accepted for interface compat).
+#' @param extra_body List.
+#' @param apply_constraint_fn Function. Takes `(body, labels)` and adds the
+#'   backend-specific constraint field.
+#' @param token_cache Environment. Memoization cache.
+#' @return Character vector of token strings.
+#' @keywords internal
+omni_forced_tokenize <- function(base_url, api_key, timeout, model, text,
+                                  context = NULL, extra_body = list(),
+                                  apply_constraint_fn, token_cache = NULL) {
+  # Check cache
+  if (!is.null(token_cache) && !is.null(token_cache[[text]])) {
+    return(token_cache[[text]])
+  }
+
+  body <- build_omni_body(
+    model, list(list(role = "user", content = text)),
+    temperature = 0, logprobs = TRUE, top_logprobs = 1,
+    max_tokens = 256, extra_body = extra_body
+  )
+  body <- apply_constraint_fn(body, text)
+
+  response <- send_omni_chat(base_url, api_key, timeout, body)
+  lps <- filter_special_tokens(response$logprobs %||% list())
+  tokens <- purrr::map_chr(lps, "token")
+  if (length(tokens) == 0) tokens <- text
+
+  # Memoize
+  if (!is.null(token_cache)) {
+    token_cache[[text]] <- tokens
+  }
+
+  tokens
 }
 
 
@@ -228,8 +364,15 @@ omni_tokenize <- function(base_url, api_key, timeout, model, text, context = NUL
 #'
 #' Ollama uses JSON Schema enum for label constraints. The model generates
 #' `{"label": "<chosen>"}`. Structural JSON tokens are filtered during trie
-#' reconstruction. Context-dependent tokenization ensures the trie matches
-#' the actual response tokens.
+#' reconstruction and completion scoring.
+#'
+#' Modern Ollama removed the `/api/tokenize` endpoint and does not support
+#' fill-in-the-middle ("insert") on instruct models. This backend therefore
+#' obtains both label tokenization and completion scores through empirical
+#' *forced constrained generation* (forcing a label as the only valid choice
+#' and reading back the model's genuine per-token logprobs). No
+#' `/api/tokenize` or `suffix`/insert calls are used. Tokenization results
+#' are memoized per label.
 #'
 #' @param model Character. Model name (e.g., `"llama3.2"`).
 #' @param host Character. Ollama server URL. Defaults to
@@ -247,6 +390,10 @@ omni_tokenize <- function(base_url, api_key, timeout, model, text, context = NUL
 #' }
 ollama_backend <- function(model, host = "http://localhost:11434",
                             timeout = 120, max_tokens = 256, extra_body = list()) {
+  # Empirical tokenization is deterministic per label (the JSON wrapper
+  # prefix is constant), so memoize per label to amortize the setup cost.
+  token_cache <- new.env(parent = emptyenv())
+
   chat_fn <- function(messages, temperature = 0, constrain_labels = NULL,
                        logprobs = FALSE, top_logprobs = 5) {
     ollama_chat(
@@ -258,11 +405,11 @@ ollama_backend <- function(model, host = "http://localhost:11434",
   }
 
   score_fn <- function(messages, completion) {
-    ollama_score(host, model, messages, completion, extra_body)
+    ollama_score(host, model, messages, completion, extra_body, token_cache)
   }
 
   tokenize_fn <- function(text, context = NULL) {
-    ollama_tokenize(host, model, text, context)
+    ollama_tokenize(host, model, text, context, token_cache)
   }
 
   structure(
@@ -287,8 +434,14 @@ ollama_backend <- function(model, host = "http://localhost:11434",
 #'
 #' @description
 #' Backend for the vLLM inference server. vLLM provides a high-throughput
-#' serving engine with an OpenAI-compatible API. It supports `guided_choice`
-#' natively, generating bare label text with no JSON wrapper.
+#' serving engine with an OpenAI-compatible API. It supports
+#' `structured_outputs.choice` (vLLM v0.12.0+) for bare-label constrained
+#' generation, generating bare label text with no JSON wrapper.
+#'
+#' `score()` uses echo/prefill (`/v1/completions` with `echo=TRUE`) to
+#' recover genuine per-label logprobs. `tokenize()` uses forced constrained
+#' generation so token boundaries match the actual constrained-generation
+#' output. Results are memoized per label.
 #'
 #' @param model Character. Model identifier.
 #' @param base_url Character. Base URL of the vLLM server.
@@ -305,11 +458,19 @@ ollama_backend <- function(model, host = "http://localhost:11434",
 vllm_backend <- function(model, base_url = "http://localhost:8000/v1",
                           api_key = "not-needed", timeout = 120,
                           max_tokens = 256, extra_body = list()) {
+  token_cache <- new.env(parent = emptyenv())
+
+  # Apply structured_outputs.choice constraint (vLLM v0.12.0+)
+  apply_constraint <- function(body, labels) {
+    body$structured_outputs <- list(choice = labels)
+    body
+  }
+
   chat_fn <- function(messages, temperature = 0, constrain_labels = NULL,
                        logprobs = FALSE, top_logprobs = 5) {
     body <- build_omni_body(model, messages, temperature, logprobs, top_logprobs,
                              max_tokens, extra_body)
-    if (!is.null(constrain_labels)) body$guided_choice <- constrain_labels
+    if (!is.null(constrain_labels)) body <- apply_constraint(body, constrain_labels)
     send_omni_chat(base_url, api_key, timeout, body)
   }
 
@@ -318,7 +479,8 @@ vllm_backend <- function(model, base_url = "http://localhost:8000/v1",
   }
 
   tokenize_fn <- function(text, context = NULL) {
-    omni_tokenize(base_url, api_key, timeout, model, text, context)
+    omni_forced_tokenize(base_url, api_key, timeout, model, text, context,
+                          extra_body, apply_constraint, token_cache)
   }
 
   structure(
@@ -340,7 +502,12 @@ vllm_backend <- function(model, base_url = "http://localhost:8000/v1",
 #'
 #' @description
 #' Backend for the SGLang inference server. Uses regex constraint for
-#' bare-label generation.
+#' bare-label generation, producing clean label text with no JSON wrapper.
+#'
+#' `score()` uses echo/prefill (`/v1/completions` with `echo=TRUE`) to
+#' recover genuine per-label logprobs. `tokenize()` uses forced constrained
+#' generation via regex so token boundaries match the actual
+#' constrained-generation output. Results are memoized per label.
 #'
 #' @inheritParams vllm_backend
 #' @return A backend list.
@@ -352,14 +519,20 @@ vllm_backend <- function(model, base_url = "http://localhost:8000/v1",
 sglang_backend <- function(model, base_url = "http://localhost:30000/v1",
                             api_key = "not-needed", timeout = 120,
                             max_tokens = 256, extra_body = list()) {
+  token_cache <- new.env(parent = emptyenv())
+
+  # Apply regex constraint for bare-label generation
+  apply_constraint <- function(body, labels) {
+    escaped <- purrr::map_chr(labels, ~ gsub("([\\[\\]{}.|*+?()^$])", "\\\\\\1", .x))
+    body$regex <- paste0("(", paste(escaped, collapse = "|"), ")")
+    body
+  }
+
   chat_fn <- function(messages, temperature = 0, constrain_labels = NULL,
                        logprobs = FALSE, top_logprobs = 5) {
     body <- build_omni_body(model, messages, temperature, logprobs, top_logprobs,
                              max_tokens, extra_body)
-    if (!is.null(constrain_labels)) {
-      escaped <- purrr::map_chr(constrain_labels, ~ gsub("([\\[\\]{}.|*+?()^$])", "\\\\\\1", .x))
-      body$regex <- paste0("(", paste(escaped, collapse = "|"), ")")
-    }
+    if (!is.null(constrain_labels)) body <- apply_constraint(body, constrain_labels)
     send_omni_chat(base_url, api_key, timeout, body)
   }
 
@@ -368,7 +541,8 @@ sglang_backend <- function(model, base_url = "http://localhost:30000/v1",
   }
 
   tokenize_fn <- function(text, context = NULL) {
-    omni_tokenize(base_url, api_key, timeout, model, text, context)
+    omni_forced_tokenize(base_url, api_key, timeout, model, text, context,
+                          extra_body, apply_constraint, token_cache)
   }
 
   structure(
@@ -392,6 +566,11 @@ sglang_backend <- function(model, base_url = "http://localhost:30000/v1",
 #' Backend for the llama.cpp server (`llama-server`). Uses GBNF grammar for
 #' bare-label generation, producing clean label text with no JSON wrapper.
 #'
+#' Both `score()` and `tokenize()` use forced constrained generation via
+#' GBNF grammar because llama.cpp does not support `echo=TRUE` on the
+#' completions endpoint (it only returns generated-token logprobs, not
+#' prompt tokens). Results are memoized per label.
+#'
 #' @inheritParams vllm_backend
 #' @return A backend list.
 #' @export
@@ -402,24 +581,31 @@ sglang_backend <- function(model, base_url = "http://localhost:30000/v1",
 llamacpp_backend <- function(model, base_url = "http://localhost:8080/v1",
                                api_key = "not-needed", timeout = 120,
                                max_tokens = 256, extra_body = list()) {
+  token_cache <- new.env(parent = emptyenv())
+
+  # Apply GBNF grammar constraint: root ::= "label1" | "label2" | "label3"
+  apply_constraint <- function(body, labels) {
+    quoted <- purrr::map_chr(labels, ~ paste0('"', .x, '"'))
+    body$grammar <- paste0("root ::= ", paste(quoted, collapse = " | "))
+    body
+  }
+
   chat_fn <- function(messages, temperature = 0, constrain_labels = NULL,
                        logprobs = FALSE, top_logprobs = 5) {
     body <- build_omni_body(model, messages, temperature, logprobs, top_logprobs,
                              max_tokens, extra_body)
-    if (!is.null(constrain_labels)) {
-      # Build GBNF grammar: root ::= "label1" | "label2" | "label3"
-      quoted <- purrr::map_chr(constrain_labels, ~ paste0('"', .x, '"'))
-      body$grammar <- paste0("root ::= ", paste(quoted, collapse = " | "))
-    }
+    if (!is.null(constrain_labels)) body <- apply_constraint(body, constrain_labels)
     send_omni_chat(base_url, api_key, timeout, body)
   }
 
   score_fn <- function(messages, completion) {
-    omni_score(base_url, api_key, timeout, model, messages, completion, extra_body)
+    omni_forced_score(base_url, api_key, timeout, model, messages, completion,
+                       extra_body, apply_constraint)
   }
 
   tokenize_fn <- function(text, context = NULL) {
-    omni_tokenize(base_url, api_key, timeout, model, text, context)
+    omni_forced_tokenize(base_url, api_key, timeout, model, text, context,
+                          extra_body, apply_constraint, token_cache)
   }
 
   structure(

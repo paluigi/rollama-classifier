@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-12
+
+**Behavior change:** All four backends were rewritten with a unified
+architecture: `tokenize()` uses empirical forced constrained generation
+across all backends, and `score()` uses echo/prefill (vLLM, SGLang) or
+forced constrained generation (Ollama, llama.cpp) depending on server
+capabilities. This is a minor version bump because the `score()` /
+`classify()` contract and per-call cost change.
+
+### Fixed
+
+- `ollama_score()` no longer uses `/api/generate` with `suffix` (HTTP 400
+  "does not support insert" on instruct models). Now uses forced
+  constrained generation via JSON Schema enum.
+- `ollama_tokenize()` no longer calls the removed `/api/tokenize`
+  endpoint (was an error on modern Ollama). All backends' `tokenize()`
+  now use forced constrained generation so token boundaries match actual
+  constrained-generation output. Results are memoized per label.
+- `sglang_backend()` `score()` rewritten to use echo/prefill
+  (`/v1/completions` with `echo = TRUE`) with the correct `"prompt"`
+  field in `/tokenize` for boundary detection. Produces differentiated
+  confidence for `classify()` (was near-uniform with forced generation
+  due to prompt-priming).
+- `sglang_backend()` `tokenize()` no longer sends the wrong field name
+  (`"text"` vs the API's `"prompt"`). Now uses forced constrained
+  generation via regex.
+- `vllm_backend()` constraint updated from deprecated `guided_choice`
+  (removed in vLLM v0.12.0) to `structured_outputs.choice`. `score()`
+  rewritten to use echo/prefill; `tokenize()` uses forced constrained
+  generation.
+- `llamacpp_backend()` `score()` rewritten from broken `suffix`-based
+  completions to forced GBNF grammar generation (llama.cpp does not
+  support `echo = TRUE` on the completions endpoint).
+- All backends: `score()` now raises an error when no value tokens are
+  returned (previously returned empty logprobs silently).
+
+### Changed
+
+- **Behavior change:** `score()` now uses echo/prefill (vLLM, SGLang) or
+  forced constrained generation (Ollama, llama.cpp), not a no-generation
+  forward pass.
+- `tokenize()` return value is now always token *strings* (empirical
+  tokens have no stable server-side ID). Downstream consumers should not
+  rely on token IDs.
+- All backend docstrings updated to document the scoring and
+  tokenization mechanisms.
+
+### Added
+
+- `ollama_label_token_logprobs()` — extracts label-value tokens from a
+  `{"label": "..."}` response via char-offset span mapping.
+- `filter_special_tokens()` and `SPECIAL_TOKENS` — filter special/EOS
+  tokens from bare-label responses (Llama-3, Phi, Qwen EOS markers).
+- `omni_forced_score()` — shared forced constrained generation score
+  helper for llama.cpp.
+- `omni_forced_tokenize()` — shared forced constrained generation
+  tokenize helper for vLLM, SGLang, llama.cpp.
+- Token memoization caches in all backends (per-label, amortizes
+  forced-generation setup cost).
+- `local_tests/` — integration test infrastructure with dataset
+  evaluation and CSV output for all four backends.
+- `tests/testthat/test-ollama-backend.R` — unit tests for the Ollama
+  label-token extraction helper (no server required).
+
 ## [0.4.0] - 2026-07-06
 
 The v0.4.0 redesign unifies the package around a single

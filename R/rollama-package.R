@@ -3,7 +3,9 @@
 #' @description
 #' A wrapper around the Ollama REST API and other inference engines
 #' (vLLM, SGLang, llama.cpp) for text classification with constrained output
-#' and confidence scoring. Provides two scoring methods:
+#' and confidence scoring. All backends use empirical forced constrained
+#' generation for tokenization and echo/prefill or forced generation for
+#' completion scoring. Provides two scoring methods:
 #'
 #' - `generate()`: Adaptive constrained generation with divergence-aware
 #'   confidence scoring, budget-controlled via `max_calls`.
