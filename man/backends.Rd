@@ -9,3 +9,4 @@ Each backend provides a unified interface with \code{chat()}, \code{score()}, an
 flag. Backends communicate via HTTP using the OpenAI-compatible API
 (vLLM, SGLang, llama.cpp) or the native API (Ollama).
 }
+\keyword{internal}

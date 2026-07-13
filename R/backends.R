@@ -6,6 +6,7 @@
 #' (vLLM, SGLang, llama.cpp) or the native API (Ollama).
 #'
 #' @name backends
+#' @keywords internal
 NULL
 
 
