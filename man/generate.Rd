@@ -19,15 +19,19 @@ labels to descriptions.}
 \item{...}{Additional arguments (for future extensibility).}
 
 \item{max_calls}{Integer or \code{NULL}. Maximum number of API calls.
-\code{1} = single call (fast, approximate). \code{NULL} = resolve all (exact).}
+\code{1} = single call, no cluster resolution (default). \code{K} = adaptive
+resolution up to K calls. \code{NULL} = resolve all clusters recursively.}
 }
 \value{
 A \code{\link[=classification_result]{classification_result()}} list.
 }
 \description{
-Generic for adaptive constrained generation. Makes 1 to \code{max_calls}
-constrained API calls and reconstructs per-label logprobs via a prefix
-trie. Confidence is exact when fully resolved, approximate otherwise.
+Generic for hierarchical constrained generation. Makes 1 to \code{max_calls}
+constrained API calls. The first call constrains the model to all labels
+and produces an internally consistent probability distribution.
+Supplementary calls (when \code{max_calls > 1}) resolve label clusters by
+\strong{reproportioning} probability mass within a cluster — they never change
+between-group totals, so accuracy cannot degrade as the call budget grows.
 }
 \examples{
 \dontrun{

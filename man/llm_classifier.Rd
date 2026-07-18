@@ -17,9 +17,13 @@ A classifier object (list of closures) usable with the S3 generics
 \description{
 Create a backend-agnostic classifier with two confidence scoring methods:
 \itemize{
-\item \code{generate()}: Adaptive constrained generation with divergence-aware
-confidence. Budget-controlled via \code{max_calls}. Makes 1 to \code{max_calls}
-constrained API calls.
+\item \code{generate()}: Hierarchical constrained generation. A single constrained
+call produces a probability distribution over all labels using
+divergence-aware logprobs from the winning path. When \code{max_calls > 1},
+supplementary calls resolve clusters of labels that share a token prefix
+but diverge from the winner — but only to \strong{reproportion} probability
+mass \emph{within} each cluster, never changing between-group totals. This
+guarantees accuracy never degrades as the call budget grows.
 \item \code{classify()}: Multi-call completion scoring with geometric-mean
 normalization. Always exact. Makes N calls for N labels.
 }

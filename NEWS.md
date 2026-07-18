@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-18
+
+**Behavior change:** `generate()` cluster resolution was rewritten to use
+**hierarchical reproportioning** instead of mixing logprobs from different
+constraint contexts. This fixes a critical bug where increasing `max_calls`
+could *decrease* classification accuracy.
+
+This release aligns rollama with
+[ollama-classifier v0.6.0](https://github.com/paluigi/ollama-classifier/blob/main/docs/changelog.rst).
+
+### Fixed
+
+- **Critical:** `generate()` with `max_calls > 1` could produce *worse*
+  predictions than `max_calls = 1`. Supplementary constrained calls (to
+  resolve label clusters) changed the constraint set, placing their logprobs
+  in a different probability space. Mixing these into the geometric mean
+  corrupted the score ranking — post-mask logprobs (≈0.0) inflated the
+  scores of labels with many unscored tokens. In the Python benchmark,
+  accuracy dropped monotonically from 73.8% (`mc = 1`) to 50.9%
+  (`mc = 8`) for the "names only" configuration.
+
+  **Fix:** Supplementary calls now only *reproportion* probability mass
+  *within* a cluster of labels, never changing between-group totals. The
+  cluster's total probability (from the initial call) is redistributed
+  among its members using softmax of geometric-mean scores from the subset
+  call. This guarantees accuracy never degrades with increasing `max_calls`.
+
+### Changed
+
+- `generate()` rewritten with the reproportion approach. The BFS
+  cluster-resolution loop is retained, but supplementary calls only resolve
+  multi-label clusters (≥2 labels). Single-label clusters with partial
+  coverage are skipped — their probability is already fixed by the
+  between-group distribution, and no reproportioning call would change it.
+- `max_calls = 1` now means "no cluster resolution" (single call, purely
+  divergence-based scoring from the initial constrained call).
+- The `raw_response` list of `generate()` now always includes
+  `step_logprobs` and `scored_lengths`. The `raw_response` of `classify()`
+  now always includes `token_logprobs`.
+- Function docstrings updated to reflect the hierarchical reproportion
+  algorithm.
+
+### Added
+
+- `tests/testthat/helper-mock-backend.R` — a `MockBackend` for offline
+  testing of `generate()`/`classify()` (no inference server required).
+- `tests/testthat/test-classifier.R` — unit tests for `generate()` /
+  `classify()` / batch variants, plus three regression tests ported from
+  `ollama-classifier` v0.6.0 `TestMaxCallsMonotonicity` verifying that:
+  (1) increasing `max_calls` never flips a correct prediction,
+  (2) between-group probability mass is preserved during reproportioning,
+  and (3) single-token labels require no resolution calls.
+
 ## [0.5.0] - 2026-07-12
 
 **Behavior change:** All four backends were rewritten with a unified
