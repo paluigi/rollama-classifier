@@ -1,8 +1,11 @@
 #' Generate a constrained classification
 #'
-#' Generic for adaptive constrained generation. Makes 1 to `max_calls`
-#' constrained API calls and reconstructs per-label logprobs via a prefix
-#' trie. Confidence is exact when fully resolved, approximate otherwise.
+#' Generic for hierarchical constrained generation. Makes 1 to `max_calls`
+#' constrained API calls. The first call constrains the model to all labels
+#' and produces an internally consistent probability distribution.
+#' Supplementary calls (when `max_calls > 1`) resolve label clusters by
+#' **reproportioning** probability mass within a cluster — they never change
+#' between-group totals, so accuracy cannot degrade as the call budget grows.
 #'
 #' @param classifier A classifier object created by [llm_classifier()].
 #' @param text Character. The text to classify.
@@ -11,7 +14,8 @@
 #' @param system_prompt Character or `NULL`. Optional custom system prompt.
 #' @param ... Additional arguments (for future extensibility).
 #' @param max_calls Integer or `NULL`. Maximum number of API calls.
-#'   `1` = single call (fast, approximate). `NULL` = resolve all (exact).
+#'   `1` = single call, no cluster resolution (default). `K` = adaptive
+#'   resolution up to K calls. `NULL` = resolve all clusters recursively.
 #'
 #' @return A [classification_result()] list.
 #' @export
