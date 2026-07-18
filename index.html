@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">rollama</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,7 +59,7 @@
 <p>rollama offers two complementary scoring methods:</p>
 <ul>
 <li>
-<strong><code><a href="reference/generate.html">generate()</a></code></strong> — Adaptive constrained generation. Reconstructs per-label logprobs from one or a few constrained API calls using a prefix trie. Budget-controlled via <code>max_calls</code>.</li>
+<strong><code><a href="reference/generate.html">generate()</a></code></strong> — Hierarchical constrained generation. A single constrained call produces a probability distribution over all labels using divergence-aware logprobs from the winning path. When <code>max_calls &gt; 1</code>, supplementary calls resolve label clusters by <strong>reproportioning</strong> probability mass <em>within</em> a cluster — never changing between-group totals, so accuracy never degrades as the call budget grows.</li>
 <li>
 <strong><code><a href="reference/classify.html">classify()</a></code></strong> — Multi-call completion scoring. Scores every label independently with geometric-mean normalization for exact, calibrated probabilities.</li>
 </ul>
@@ -194,7 +194,7 @@
 <tbody>
 <tr class="odd">
 <td><strong>Strategy</strong></td>
-<td>Adaptive trie-masked generation</td>
+<td>Hierarchical constrained generation with reproportioning</td>
 <td>Multi-call completion scoring</td>
 </tr>
 <tr class="even">
@@ -235,7 +235,7 @@
 <h3 id="max_calls--controlling-the-generate-budget">
 <code>max_calls</code> — controlling the <code>generate()</code> budget<a class="anchor" aria-label="anchor" href="#max_calls--controlling-the-generate-budget"></a>
 </h3>
-<p>The <code>max_calls</code> argument controls how <code><a href="reference/generate.html">generate()</a></code> spends its API budget:</p>
+<p>The <code>max_calls</code> argument controls how <code><a href="reference/generate.html">generate()</a></code> spends its API budget. The first call always constrains the model to <em>all</em> labels and produces an internally consistent probability distribution. Supplementary calls (when <code>max_calls &gt; 1</code>) only <strong>reproportion</strong> probability mass <em>within</em> clusters of unresolved labels — they never change between-group totals, so increasing <code>max_calls</code> can only improve or leave unchanged the prediction, never degrade it.</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -251,18 +251,18 @@
 <tr class="odd">
 <td>
 <code>1</code> (default)</td>
-<td>Single constrained call; fast, may be approximate</td>
+<td>Single constrained call; no cluster resolution</td>
 <td>Quick lookups, large label sets</td>
 </tr>
 <tr class="even">
 <td>
 <code>K</code> (integer)</td>
-<td>Adaptive: resolves ambiguity up to K calls</td>
+<td>Adaptive: resolves label clusters up to K calls</td>
 <td>Balance of speed and accuracy</td>
 </tr>
 <tr class="odd">
 <td><code>NULL</code></td>
-<td>Resolves all labels; exact</td>
+<td>Resolves all clusters recursively; exact</td>
 <td>When you need full coverage</td>
 </tr>
 </tbody>

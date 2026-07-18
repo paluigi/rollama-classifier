@@ -1,8 +1,12 @@
 # Generate a constrained classification
 
-Generic for adaptive constrained generation. Makes 1 to `max_calls`
-constrained API calls and reconstructs per-label logprobs via a prefix
-trie. Confidence is exact when fully resolved, approximate otherwise.
+Generic for hierarchical constrained generation. Makes 1 to `max_calls`
+constrained API calls. The first call constrains the model to all labels
+and produces an internally consistent probability distribution.
+Supplementary calls (when `max_calls > 1`) resolve label clusters by
+**reproportioning** probability mass within a cluster — they never
+change between-group totals, so accuracy cannot degrade as the call
+budget grows.
 
 ## Usage
 
@@ -36,8 +40,9 @@ generate(classifier, text, choices, system_prompt = NULL, ..., max_calls = 1L)
 
 - max_calls:
 
-  Integer or `NULL`. Maximum number of API calls. `1` = single call
-  (fast, approximate). `NULL` = resolve all (exact).
+  Integer or `NULL`. Maximum number of API calls. `1` = single call, no
+  cluster resolution (default). `K` = adaptive resolution up to K calls.
+  `NULL` = resolve all clusters recursively.
 
 ## Value
 

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rollama</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -149,7 +149,7 @@ calls and how their confidence is computed.</p>
 <tbody>
 <tr class="odd">
 <td><strong>Strategy</strong></td>
-<td>Adaptive trie-masked generation</td>
+<td>Hierarchical constrained generation with reproportioning</td>
 <td>Multi-call completion scoring</td>
 </tr>
 <tr class="even">
@@ -184,10 +184,16 @@ calls and how their confidence is computed.</p>
 <ul>
 <li>
 <strong><code><a href="../reference/generate.html">generate()</a></code></strong> makes one or a few
-constrained calls and reconstructs per-label logprobs from the winning
-generation path using a prefix trie. It is fast and budget-controlled,
-but the result may be <em>approximate</em> when the budget runs out
-before every label is fully resolved.</li>
+constrained calls. The first call constrains the model to <em>all</em>
+labels and produces an internally consistent probability distribution
+from divergence-aware logprobs along the winning generation path.
+Supplementary calls (when <code>max_calls &gt; 1</code>) resolve
+clusters of labels that share a token prefix by
+<strong>reproportioning</strong> probability mass <em>within</em> each
+cluster — they never change between-group totals, so accuracy never
+degrades as the call budget grows. The result may be
+<em>approximate</em> when the budget runs out before every label is
+fully resolved.</li>
 <li>
 <strong><code><a href="../reference/classify.html">classify()</a></code></strong> scores every label
 independently via the backend’s completion-scoring endpoint, then
@@ -199,7 +205,9 @@ N calls for N labels and is always exact.</li>
 <code>max_calls</code><a class="anchor" aria-label="anchor" href="#max_calls"></a>
 </h3>
 <p>The <code>max_calls</code> argument controls
-<code><a href="../reference/generate.html">generate()</a></code>’s API budget:</p>
+<code><a href="../reference/generate.html">generate()</a></code>’s API budget. The first call is always made over
+<em>all</em> labels; supplementary calls only reproportion probability
+mass within unresolved clusters:</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -215,20 +223,20 @@ N calls for N labels and is always exact.</li>
 <tr class="odd">
 <td>
 <code>1</code> (default)</td>
-<td>Single constrained call; fast</td>
+<td>Single constrained call; no cluster resolution</td>
 <td>Possibly <code>TRUE</code>
 </td>
 </tr>
 <tr class="even">
 <td>
 <code>K</code> (integer)</td>
-<td>Adaptive: resolves ambiguity up to K calls</td>
+<td>Adaptive: resolves label clusters up to K calls</td>
 <td>Possibly <code>TRUE</code>
 </td>
 </tr>
 <tr class="odd">
 <td><code>NULL</code></td>
-<td>Resolves all labels; exact</td>
+<td>Resolves all clusters recursively; exact</td>
 <td><code>FALSE</code></td>
 </tr>
 </tbody>
@@ -323,7 +331,7 @@ better:</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="adaptive-generation">Adaptive Generation<a class="anchor" aria-label="anchor" href="#adaptive-generation"></a>
+<h3 id="hierarchical-generation">Hierarchical Generation<a class="anchor" aria-label="anchor" href="#hierarchical-generation"></a>
 </h3>
 <p><code><a href="../reference/generate.html">generate()</a></code> returns a <code>classification_result</code>
 just like <code><a href="../reference/classify.html">classify()</a></code>, reconstructed from constrained

@@ -7,9 +7,12 @@ unified API: **Ollama, vLLM, SGLang, and llama.cpp**.
 rollama offers two complementary scoring methods:
 
 - **[`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md)**
-  — Adaptive constrained generation. Reconstructs per-label logprobs
-  from one or a few constrained API calls using a prefix trie.
-  Budget-controlled via `max_calls`.
+  — Hierarchical constrained generation. A single constrained call
+  produces a probability distribution over all labels using
+  divergence-aware logprobs from the winning path. When `max_calls > 1`,
+  supplementary calls resolve label clusters by **reproportioning**
+  probability mass *within* a cluster — never changing between-group
+  totals, so accuracy never degrades as the call budget grows.
 - **[`classify()`](https://paluigi-moltis.github.io/rollama-classifier/reference/classify.md)**
   — Multi-call completion scoring. Scores every label independently with
   geometric-mean normalization for exact, calibrated probabilities.
@@ -126,7 +129,7 @@ budget needs.
 
 |                   | [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md) | [`classify()`](https://paluigi-moltis.github.io/rollama-classifier/reference/classify.md) |
 |-------------------|-------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| **Strategy**      | Adaptive trie-masked generation                                                           | Multi-call completion scoring                                                             |
+| **Strategy**      | Hierarchical constrained generation with reproportioning                                  | Multi-call completion scoring                                                             |
 | **API calls**     | 1 to `max_calls` (budget-controlled)                                                      | N calls for N labels                                                                      |
 | **Confidence**    | Divergence-aware; exact when fully resolved                                               | Always exact (calibrated)                                                                 |
 | **Normalization** | Geometric mean of per-token logprobs                                                      | Geometric mean of per-token logprobs                                                      |
@@ -138,13 +141,18 @@ budget needs.
 
 The `max_calls` argument controls how
 [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md)
-spends its API budget:
+spends its API budget. The first call always constrains the model to
+*all* labels and produces an internally consistent probability
+distribution. Supplementary calls (when `max_calls > 1`) only
+**reproportion** probability mass *within* clusters of unresolved labels
+— they never change between-group totals, so increasing `max_calls` can
+only improve or leave unchanged the prediction, never degrade it.
 
-| `max_calls`   | Behavior                                          | When to use                     |
-|---------------|---------------------------------------------------|---------------------------------|
-| `1` (default) | Single constrained call; fast, may be approximate | Quick lookups, large label sets |
-| `K` (integer) | Adaptive: resolves ambiguity up to K calls        | Balance of speed and accuracy   |
-| `NULL`        | Resolves all labels; exact                        | When you need full coverage     |
+| `max_calls`   | Behavior                                        | When to use                     |
+|---------------|-------------------------------------------------|---------------------------------|
+| `1` (default) | Single constrained call; no cluster resolution  | Quick lookups, large label sets |
+| `K` (integer) | Adaptive: resolves label clusters up to K calls | Balance of speed and accuracy   |
+| `NULL`        | Resolves all clusters recursively; exact        | When you need full coverage     |
 
 ``` r
 # Fast, single-call prediction (may be approximate)

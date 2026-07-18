@@ -4,9 +4,14 @@ Create a backend-agnostic classifier with two confidence scoring
 methods:
 
 - [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md):
-  Adaptive constrained generation with divergence-aware confidence.
-  Budget-controlled via `max_calls`. Makes 1 to `max_calls` constrained
-  API calls.
+  Hierarchical constrained generation. A single constrained call
+  produces a probability distribution over all labels using
+  divergence-aware logprobs from the winning path. When `max_calls > 1`,
+  supplementary calls resolve clusters of labels that share a token
+  prefix but diverge from the winner — but only to **reproportion**
+  probability mass *within* each cluster, never changing between-group
+  totals. This guarantees accuracy never degrades as the call budget
+  grows.
 
 - [`classify()`](https://paluigi-moltis.github.io/rollama-classifier/reference/classify.md):
   Multi-call completion scoring with geometric-mean normalization.

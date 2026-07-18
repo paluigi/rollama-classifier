@@ -76,7 +76,7 @@ their confidence is computed.
 
 |                   | [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md) | [`classify()`](https://paluigi-moltis.github.io/rollama-classifier/reference/classify.md) |
 |-------------------|-------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| **Strategy**      | Adaptive trie-masked generation                                                           | Multi-call completion scoring                                                             |
+| **Strategy**      | Hierarchical constrained generation with reproportioning                                  | Multi-call completion scoring                                                             |
 | **API calls**     | 1 to `max_calls` (budget-controlled)                                                      | N calls for N labels                                                                      |
 | **Confidence**    | Divergence-aware; exact when fully resolved                                               | Always exact (calibrated)                                                                 |
 | **Normalization** | Geometric mean of per-token logprobs                                                      | Geometric mean of per-token logprobs                                                      |
@@ -84,10 +84,15 @@ their confidence is computed.
 | **`approximate`** | `TRUE` if any label has partial coverage                                                  | Always `FALSE`                                                                            |
 
 - **[`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md)**
-  makes one or a few constrained calls and reconstructs per-label
-  logprobs from the winning generation path using a prefix trie. It is
-  fast and budget-controlled, but the result may be *approximate* when
-  the budget runs out before every label is fully resolved.
+  makes one or a few constrained calls. The first call constrains the
+  model to *all* labels and produces an internally consistent
+  probability distribution from divergence-aware logprobs along the
+  winning generation path. Supplementary calls (when `max_calls > 1`)
+  resolve clusters of labels that share a token prefix by
+  **reproportioning** probability mass *within* each cluster — they
+  never change between-group totals, so accuracy never degrades as the
+  call budget grows. The result may be *approximate* when the budget
+  runs out before every label is fully resolved.
 - **[`classify()`](https://paluigi-moltis.github.io/rollama-classifier/reference/classify.md)**
   scores every label independently via the backend’s completion-scoring
   endpoint, then applies a softmax over geometric-mean-normalized
@@ -97,13 +102,15 @@ their confidence is computed.
 
 The `max_calls` argument controls
 [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md)’s
-API budget:
+API budget. The first call is always made over *all* labels;
+supplementary calls only reproportion probability mass within unresolved
+clusters:
 
-| `max_calls`   | Behavior                                   | `approximate`   |
-|---------------|--------------------------------------------|-----------------|
-| `1` (default) | Single constrained call; fast              | Possibly `TRUE` |
-| `K` (integer) | Adaptive: resolves ambiguity up to K calls | Possibly `TRUE` |
-| `NULL`        | Resolves all labels; exact                 | `FALSE`         |
+| `max_calls`   | Behavior                                        | `approximate`   |
+|---------------|-------------------------------------------------|-----------------|
+| `1` (default) | Single constrained call; no cluster resolution  | Possibly `TRUE` |
+| `K` (integer) | Adaptive: resolves label clusters up to K calls | Possibly `TRUE` |
+| `NULL`        | Resolves all clusters recursively; exact        | `FALSE`         |
 
 ``` r
 # Fast, single-call prediction (may be approximate)
@@ -194,7 +201,7 @@ result <- classify(
 )
 ```
 
-### Adaptive Generation
+### Hierarchical Generation
 
 [`generate()`](https://paluigi-moltis.github.io/rollama-classifier/reference/generate.md)
 returns a `classification_result` just like
